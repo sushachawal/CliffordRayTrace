@@ -36,11 +36,11 @@ def new_point_pair(p1, p2):
 def unsign_sphere(S):
     return (S/(S.dual()|einf)[0]).normal()
 
-def pointofXsphere(ray, sphere):
+def pointofXsphere(ray, sphere, origin):
     B = meet(ray, sphere)
     if((B**2)[0] > 0.000001):
         points = PointsFromPP(B)
-        if((points[0] | upcam)[0] > (points[1] | upcam)[0]):
+        if((points[0] | origin)[0] > (points[1] | origin)[0]):
             return points[0]
     return None
 
@@ -55,29 +55,34 @@ def PointsFromPP(mv):
 def reflect_in_sphere(ray, sphere, pX):
         return(((pX|(sphere*ray*sphere))^einf).normal())
 
-def intersects(ray, scene):
+def intersects(ray, scene, origin):
     dist = None
     index = None
     pXfin = None
     for idx, obj in enumerate(scene):
-        pX = pointofXsphere(ray, obj.object)
+        pX = pointofXsphere(ray, obj.object, origin)
         if(pX is None): continue
         if(idx == 0):
-            dist, index, pXfin = (pX | upcam) , idx , pX
+            dist, index, pXfin = (pX | origin) , idx , pX
             continue
-        t = pX | upcam
+        t = pX | origin
         if(t > dist):
             dist, index, pXfin = t, idx, pX
     return pXfin, index
 
-def trace_ray(ray, scene, depth):
+def trace_ray(ray, scene,origin, depth):
     pixel_col = np.zeros(3)
-    pX, index = intersects(ray, scene)
+    pX, index = intersects(ray, scene, origin)
     if(index is None): return background
+    if(depth > 1):
+        print("Object intersection from reflected ray!")
+        sc = GAScene()
+        sc.add_line(ray.normal())
+        print(sc)
     obj = scene[index]
     # sc = GAScene()
     toL = (pX ^up(L)^einf).normal()
-    if(intersects(toL, scene[:index] + scene[index+1:])[0] is not None):
+    if(intersects(toL, scene[:index] + scene[index+1:], pX)[0] is not None):
         return pixel_col
     reflected = -1.*reflect_in_sphere(ray, obj.object, pX)
     norm = reflected - ray
@@ -95,7 +100,7 @@ def trace_ray(ray, scene, depth):
         pixel_col += obj.diffuse * max(cosangle_between_lines(norm, toL), 0) * obj.colour
     if(depth == max_depth):
         return pixel_col
-    pixel_col += obj.reflection * trace_ray(reflected, scene, depth + 1)
+    pixel_col += obj.reflection * trace_ray(reflected, scene, pX, depth + 1)
     return pixel_col
 
 def RMVR(mv):
@@ -113,7 +118,7 @@ background = np.array([0., 0., 0.])
 
 #add objects to the scene!
 scene = []
-scene.append(Sphere(-2.*e1 + 0.2*e2, 4., np.array([0., 0., 1.]), 1., 50., .05, 1., 0.))
+scene.append(Sphere(-2.*e1 + 0.2*e2, 4., np.array([0., 0., 1.]), 1., 50., .05, 1., 1.))
 
 #Pixel resolution
 w = 400
@@ -148,7 +153,7 @@ for i in range(0,w):
     point = initial
     line = (upcam ^ initial ^ einf).normal()
     for j in range(0, h):
-        img[j, i, :] = np.clip(trace_ray(line, scene, 0), 0, 1)
+        img[j, i, :] = np.clip(trace_ray(line, scene, upcam, 0), 0, 1)
         point = dTy*point*~dTy
         line = (upcam ^ point ^ einf).normal()
 
