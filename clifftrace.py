@@ -13,6 +13,7 @@ yellow = 'rgb(255, 255, 0)'
 magenta = 'rgb(255, 0, 255)'
 cyan = 'rgb(0,255,255)'
 black = 'rgb(0,0,0)'
+dark_blue = 'rgb(8, 0, 84)'
 
 class Sphere:
     def __init__(self, c, r, colour, specular, spec_k, ambient, diffuse, reflection):
@@ -23,6 +24,65 @@ class Sphere:
         self.ambient = ambient
         self.diffuse = diffuse
         self.reflection = reflection
+    def getColour(self):
+        return "rgb(%d, %d, %d)"% (int(self.colour[0]*255), int(self.colour[1]*255), int(self.colour[2]*255))
+
+def drawScene():
+    Ptr = Ptl + 2*e1*xmax
+    Pbl = Ptl - 2*e3*ymax
+    Pbr = Ptr - 2*e3*ymax
+    rect = [Ptl, Ptr, Pbr, Pbl]
+
+    sc = GAScene()
+
+    #Draw Camera transformation
+    sc.add_line(original, red)
+    sc.add_line((MVR*original*~MVR).normal(), red)
+    sc.add_euc_point(up(cam), blue)
+    sc.add_euc_point(up(lookat), blue)
+
+    #Draw screen corners
+    sc.add_euc_point(Ptl, red)
+    sc.add_euc_point(up(Ptr), green)
+    sc.add_euc_point(up(Pbl), yellow)
+    sc.add_euc_point(up(Pbr), blue)
+    for points in rect:
+        sc.add_euc_point(RMVR(up(points)), cyan)
+
+    #Draw screen rectangle
+
+    top = new_point_pair(Ptl, Ptr)
+    right = new_point_pair(Ptr, Pbr)
+    bottom = new_point_pair(Pbr, Pbl)
+    left = new_point_pair(Pbl, Ptl)
+    diag = new_point_pair(Ptl, Pbr)
+    sc.add_point_pair(top, dark_blue)
+    sc.add_point_pair(right, dark_blue)
+    sc.add_point_pair(bottom, dark_blue)
+    sc.add_point_pair(left, dark_blue)
+    sc.add_point_pair(diag, dark_blue)
+    sides = [top, right, bottom, left, diag]
+    for side in sides:
+        sc.add_point_pair(RMVR(side), dark_blue)
+
+    tl = new_line(eo, Ptl)
+    tr = new_line(eo, Ptr)
+    bl = new_line(eo, Pbl)
+    br = new_line(eo, Pbr)
+    sc.add_line(tl, red)
+    sc.add_line(tr, green)
+    sc.add_line(br, blue)
+    sc.add_line(bl, yellow)
+
+    lines = [tl, tr, br, bl]
+    for line in lines:
+        sc.add_line(RMVR(line).normal(),magenta)
+    for objects in scene:
+        sc.add_sphere(objects.object, objects.getColour())
+    sc.add_euc_point(up(L), yellow)
+    sc.add_sphere(new_sphere(L + e1, L+e2, L+e3, L-e1), yellow)
+
+    print(sc)
 
 def new_sphere(p1, p2, p3, p4):
     return unsign_sphere(normalised(up(p1) ^ up(p2) ^ up(p3) ^ up(p4)))
@@ -74,11 +134,6 @@ def trace_ray(ray, scene,origin, depth):
     pixel_col = np.zeros(3)
     pX, index = intersects(ray, scene, origin)
     if(index is None): return background
-    if(depth > 1):
-        print("Object intersection from reflected ray!")
-        sc = GAScene()
-        sc.add_line(ray.normal())
-        print(sc)
     obj = scene[index]
     # sc = GAScene()
     toL = normalised(pX ^up(L)^einf)
@@ -118,8 +173,8 @@ background = np.array([0., 0., 0.])
 
 #add objects to the scene!
 scene = []
-scene.append(Sphere(-2.*e1 + 0.2*e2, 4., np.array([1., 145./255., 0.]), 1., 100., .05, 1., 0.3))
-scene.append(Sphere(6.*e1 + 5.*e2, 4., np.array([1., 0., 0.]), 1., 100., .05, 1., 0.3))
+scene.append(Sphere(-2.*e1 + 0.2*e2, 4., np.array([1., 145./255., 0.]), 1., 100., .05, 1., 0.1))
+scene.append(Sphere(6.*e1 + 5.*e2, 4., np.array([1., 0., 0.]), 1., 100., .05, 1., 0.1))
 
 #Pixel resolution
 w = 400
@@ -146,6 +201,8 @@ dTy = MVR*generate_translation_rotor(-(2*ymax/(h-1))*e3)*~MVR
 
 Ptl = f*1.0*e2 - e1*xmax + e3*ymax
 
+drawScene()
+
 img = np.zeros((h, w, 3))
 initial = RMVR(up(Ptl))
 for i in range(0,w):
@@ -162,59 +219,5 @@ for i in range(0,w):
 
 plt.imsave('fig.png', img)
 
-Ptr = Ptl + 2*e1*xmax
-Pbl = Ptl - 2*e3*ymax
-Pbr = Ptr - 2*e3*ymax
-rect = [Ptl, Ptr, Pbr, Pbl]
-
-sc = GAScene()
-
-#Draw Camera transformation
-sc.add_line(original, red)
-sc.add_line((MVR*original*~MVR).normal(), red)
-sc.add_euc_point(up(cam), blue)
-sc.add_euc_point(up(lookat), blue)
-
-#Draw screen corners
-sc.add_euc_point(Ptl, red)
-sc.add_euc_point(up(Ptr), green)
-sc.add_euc_point(up(Pbl), yellow)
-sc.add_euc_point(up(Pbr), blue)
-for points in rect:
-    sc.add_euc_point(RMVR(up(points)), cyan)
-
-#Draw screen rectangle
-
-top = new_point_pair(Ptl, Ptr)
-right = new_point_pair(Ptr, Pbr)
-bottom = new_point_pair(Pbr, Pbl)
-left = new_point_pair(Pbl, Ptl)
-diag = new_point_pair(Ptl, Pbr)
-sc.add_point_pair(top, yellow)
-sc.add_point_pair(right, yellow)
-sc.add_point_pair(bottom, yellow)
-sc.add_point_pair(left, yellow)
-sc.add_point_pair(diag, yellow)
-sides = [top, right, bottom, left, diag]
-for side in sides:
-    sc.add_point_pair(RMVR(side), yellow)
-
-tl = new_line(eo, Ptl)
-tr = new_line(eo, Ptr)
-bl = new_line(eo, Pbl)
-br = new_line(eo, Pbr)
-sc.add_line(tl, red)
-sc.add_line(tr, green)
-sc.add_line(br, blue)
-sc.add_line(bl, yellow)
-
-lines = [tl, tr, br, bl]
-for line in lines:
-    sc.add_line(RMVR(line).normal(),magenta)
-sc.add_sphere(scene[0].object, blue)
-sc.add_euc_point(up(L), yellow)
-sc.add_sphere(new_sphere(L + e1, L+e2, L+e3, L-e1), yellow)
-
-print(sc)
 print("\n\n")
 print("--- %s seconds ---" % (time.time() - start_time))
