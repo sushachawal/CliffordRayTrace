@@ -113,17 +113,17 @@ ambient = 1.
 options = {'ambient': True, 'specular': True, 'diffuse': True}
 
 #Define background colour
-background = np.array([0., 154./255., 1.])
+#background = np.array([0., 154./255., 1.])
 background = np.array([0., 0., 0.])
 
 #add objects to the scene!
 scene = []
-scene.append(Sphere(-2.*e1 + 0.2*e2, 4., np.array([0., 0., 1.]), 1., 50., .05, 1., 1.))
+scene.append(Sphere(-2.*e1 + 0.2*e2, 4., np.array([1., 145./255., 0.]), 1., 100., .05, 1., 0.3))
 
 #Pixel resolution
 w = 400
 h = 300
-max_depth = 2
+max_depth = 4
 
 #Camera definitions
 cam =  6.*e3 - 6.*e2
