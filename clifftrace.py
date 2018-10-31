@@ -25,13 +25,13 @@ class Sphere:
         self.reflection = reflection
 
 def new_sphere(p1, p2, p3, p4):
-    return unsign_sphere((up(p1) ^ up(p2) ^ up(p3) ^ up(p4)).normal())
+    return unsign_sphere(normalised(up(p1) ^ up(p2) ^ up(p3) ^ up(p4)))
 
 def new_line(p1, p2):
-    return (up(p1)^up(p2)^einf).normal()
+    return normalised(up(p1)^up(p2)^einf)
 
 def new_point_pair(p1, p2):
-    return (up(p1)^up(p2)).normal()
+    return normalised(up(p1)^up(p2))
 
 def unsign_sphere(S):
     return (S/(S.dual()|einf)[0]).normal()
@@ -45,7 +45,7 @@ def pointofXsphere(ray, sphere, origin):
     return None
 
 def cosangle_between_lines(l1, l2):
-    return ((l1|l2)/(math.sqrt(abs((l1**2)[0]))*math.sqrt(abs((l2**2)[0]))))[0]
+    return (l1|l2)[0]#/(math.sqrt(abs((l1**2)[0]))*math.sqrt(abs((l2**2)[0]))))[0]
 
 def PointsFromPP(mv):
     P = 0.5*(1+(1/math.sqrt((mv**2)[0]))*mv)
@@ -53,19 +53,19 @@ def PointsFromPP(mv):
     return(normalise_n_minus_1(-~P*temp*P) , normalise_n_minus_1(P*temp*~P))
 
 def reflect_in_sphere(ray, sphere, pX):
-        return(((pX|(sphere*ray*sphere))^einf).normal())
+        return(normalised((pX|(sphere*ray*sphere))^einf))
 
 def intersects(ray, scene, origin):
-    dist = None
+    dist = -np.finfo(float).max
     index = None
     pXfin = None
     for idx, obj in enumerate(scene):
         pX = pointofXsphere(ray, obj.object, origin)
         if(pX is None): continue
         if(idx == 0):
-            dist, index, pXfin = (pX | origin) , idx , pX
+            dist, index, pXfin = (pX | origin)[0] , idx , pX
             continue
-        t = pX | origin
+        t = (pX | origin)[0]
         if(t > dist):
             dist, index, pXfin = t, idx, pX
     return pXfin, index
@@ -81,11 +81,11 @@ def trace_ray(ray, scene,origin, depth):
         print(sc)
     obj = scene[index]
     # sc = GAScene()
-    toL = (pX ^up(L)^einf).normal()
+    toL = normalised(pX ^up(L)^einf)
     if(intersects(toL, scene[:index] + scene[index+1:], pX)[0] is not None):
         return pixel_col
     reflected = -1.*reflect_in_sphere(ray, obj.object, pX)
-    norm = reflected - ray
+    norm = normalised(reflected - ray)
     #sc.add_line(norm.normal())
     # sc.add_line(toL, green)
     # sc.add_line(ray, cyan)
@@ -95,7 +95,7 @@ def trace_ray(ray, scene,origin, depth):
     if(options['ambient']):
         pixel_col += ambient*obj.ambient*obj.colour
     if(options['specular']):
-        pixel_col += obj.specular * max(cosangle_between_lines(norm, toL-ray), 0) ** obj.spec_k * colour_light
+        pixel_col += obj.specular * max(cosangle_between_lines(norm, normalised(toL-ray)), 0) ** obj.spec_k * colour_light
     if(options['diffuse']):
         pixel_col += obj.diffuse * max(cosangle_between_lines(norm, toL), 0) * obj.colour
     if(depth == max_depth):
@@ -119,6 +119,7 @@ background = np.array([0., 0., 0.])
 #add objects to the scene!
 scene = []
 scene.append(Sphere(-2.*e1 + 0.2*e2, 4., np.array([1., 145./255., 0.]), 1., 100., .05, 1., 0.3))
+scene.append(Sphere(6.*e1 + 5.*e2, 4., np.array([1., 0., 0.]), 1., 100., .05, 1., 0.3))
 
 #Pixel resolution
 w = 400
@@ -154,10 +155,10 @@ for i in range(0,w):
     line = (upcam ^ initial ^ einf).normal()
     for j in range(0, h):
         img[j, i, :] = np.clip(trace_ray(line, scene, upcam, 0), 0, 1)
-        point = dTy*point*~dTy
+        point = apply_rotor(point,dTy)
         line = (upcam ^ point ^ einf).normal()
 
-    initial = dTx*initial*~dTx
+    initial = apply_rotor(initial,dTx)
 
 plt.imsave('fig.png', img)
 
