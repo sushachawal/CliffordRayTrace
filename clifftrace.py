@@ -32,14 +32,9 @@ def new_point_pair(p1, p2):
     return (up(p1)^up(p2)).normal()
 
 def unsign_sphere(S):
-    return (S/(S.dual()|einf)).normal()
+    return (S/(S.dual()|einf)[0]).normal()
 
 def pointofXsphere(ray, sphere):
-    scTemp = GAScene()
-    scTemp.add_euc_point(upcam, green)
-    scTemp.add_line(ray, red)
-    scTemp.add_sphere(sphere, blue)
-    print(scTemp)
     B = meet(ray, unsign_sphere(sphere))
     if((B**2)[0] > 0.000001):
         points = PointsFromPP(B)
@@ -48,7 +43,7 @@ def pointofXsphere(ray, sphere):
     return None
 
 def cosangle_between_lines(l1, l2):
-    return (l1|l2)/(math.sqrt(abs((l1**2)[0]))*math.sqrt(abs((l2**2)[0])))[0]
+    return ((l1|l2)/(math.sqrt(abs((l1**2)[0]))*math.sqrt(abs((l2**2)[0]))))[0]
 
 def PointsFromPP(mv):
     P = 0.5*(1+(1/math.sqrt(mv**2))*mv)
@@ -66,7 +61,7 @@ def intersects(ray, scene):
         pX = pointofXsphere(ray, obj.object)
         if(pX is None): continue
         if(idx == 0):
-            dist, index = (pX | upcam) , idx
+            dist, index, pXfin = (pX | upcam) , idx , pX
             continue
         t = pX | upcam
         if(t > dist):
@@ -79,15 +74,14 @@ def trace_ray(ray, scene, depth):
     if(index is None): return background
     obj = scene[index]
     toL = new_line(pX, L)
-    if(intersects(toL, scene[:index] + scene[index+1:])[0] is None):
+    if(intersects(toL, scene[:index] + scene[index+1:])[0] is not None):
         return pixel_col
-    reflected = reflect_in_sphere(ray, obj.object)
+    reflected = reflect_in_sphere(ray, obj.object, pX)
     norm = reflected - ray
     pixel_col += ambient*obj.ambient
     pixel_col += obj.specular * max(cosangle_between_lines(norm, reflected), 0) ** obj.spec_k * colour_light
     pixel_col += obj.diffuse * max(cosangle_between_lines(norm, toL), 0) * obj.colour
     if(depth == max_depth):
-        print("Found something and traced ray!")
         return pixel_col
     pixel_col += obj.reflection * trace_ray(reflected, scene, depth + 1)
     return pixel_col
@@ -98,24 +92,25 @@ def RMVR(mv):
 # Light position and color.
 L = 5.*e1 + 5.*e3 + 10.*e2
 colour_light = np.ones(3)
+ambient = 1.
 
 #Define background colour
 background = np.zeros(3)
 
 #add objects to the scene!
 scene = []
-scene.append(Sphere(0.5*e1 + 0.2*e2, 4., [0., 0., 1.], 1., 50, .05, 1., 1.))
+scene.append(Sphere(0.5*e1 + 0.2*e2, 4., np.array([0., 0., 1.]), 1., 50, .05, 1., 1.))
 
 #Pixel resolution
-w = 80
-h = 60
+w = 10
+h = 10
 max_depth = 2
 
 #Camera definitions
 cam =  6.*e3 - 6.*e2
 lookat = 0.0
 upcam = up(cam)
-f = 0.1
+f = 1.
 xmax = 1.0
 ymax  = xmax*(h*1.0/w)
 #No need to define the up vector since we're assuming it's e3 pre-transform.
@@ -124,24 +119,30 @@ ymax  = xmax*(h*1.0/w)
 optic_axis = new_line(cam, lookat)
 original = new_line(eo, e2)
 MVR = generate_translation_rotor(cam)*rotor_between_lines(original, optic_axis)
-dTx = MVR*generate_translation_rotor((xmax/(w*1.0))*e1)*~MVR
-dTy = MVR*generate_translation_rotor(-(ymax/(h*1.0))*e3)*~MVR
+dTx = MVR*generate_translation_rotor((2*xmax/(w-1))*e1)*~MVR
+dTy = MVR*generate_translation_rotor(-(2*ymax/(h-1))*e3)*~MVR
 
 Ptl = f*1.0*e2 - e1*xmax + e3*ymax
 
 img = np.zeros((w, h, 3))
 initial = RMVR(up(Ptl))
-# for i in range(0,w):
-#     if (i%10 == 0):
-#         print(i/w * 100 , "%")
-#     point = initial
-#     line = (upcam ^ initial ^ einf).normal()
-#     for j in range(0, h):
-#         img[i, j, :] = np.clip(trace_ray(line, scene, 0), 0, 1)
-#         line = (upcam ^ (dTy*point*~dTy) ^ einf).normal()
-#     initial = dTx*initial*~dTx
-#
-# plt.imsave('fig.png', img)
+for i in range(0,w):
+    #if (i%10 == 0):
+        #print(i/w * 100 , "%")
+    point = initial
+    line = (upcam ^ initial ^ einf).normal()
+    for j in range(0, h):
+        sc = GAScene()
+        img[i, j, :] = np.clip(trace_ray(line, scene, 0), 0, 1)
+        line = (upcam ^ point ^ einf).normal()
+        sc.add_euc_point(point)
+        sc.add_line(line)
+        print(sc)
+        point = dTy*point*~dTy
+
+    initial = dTx*initial*~dTx
+
+plt.imsave('fig.png', img)
 
 
 theta = 2*math.atan(ymax/f*1.0)
