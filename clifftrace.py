@@ -124,6 +124,8 @@ def trace_ray(ray, scene,origin, depth):
     obj = scene[index]
     # sc = GAScene()
     toL = normalised(pX ^up(L)^einf)
+    if(options['ambient']):
+        pixel_col += ambient*obj.ambient*obj.colour
     if(intersects(toL, scene[:index] + scene[index+1:], pX)[0] is not None):
         return pixel_col
     reflected = -1.*reflect_in_sphere(ray, obj.object, pX)
@@ -134,8 +136,6 @@ def trace_ray(ray, scene,origin, depth):
     # sc.add_line((toL - ray).normal())
     #Norm is not consistent!!!! NEED TO SORT OUT SIGN CONSISTENCY
     #print(sc)
-    if(options['ambient']):
-        pixel_col += ambient*obj.ambient*obj.colour
     if(options['specular']):
         pixel_col += obj.specular * max(cosangle_between_lines(norm, normalised(toL-ray)), 0) ** obj.spec_k * colour_light
     if(options['diffuse']):
