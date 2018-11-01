@@ -2,7 +2,6 @@ from clifford.tools.g3c import *
 from clifford.tools.g3c.GAOnline import *
 import numpy as np
 from numpy import e, pi
-import math
 import matplotlib.pyplot as plt
 import time
 
