@@ -42,10 +42,6 @@ def drawScene():
     sc.add_euc_point(up(lookat), blue)
 
     #Draw screen corners
-    sc.add_euc_point(Ptl, red)
-    sc.add_euc_point(up(Ptr), green)
-    sc.add_euc_point(up(Pbl), yellow)
-    sc.add_euc_point(up(Pbr), blue)
     for points in rect:
         sc.add_euc_point(RMVR(up(points)), cyan)
 
@@ -56,11 +52,6 @@ def drawScene():
     bottom = new_point_pair(Pbr, Pbl)
     left = new_point_pair(Pbl, Ptl)
     diag = new_point_pair(Ptl, Pbr)
-    sc.add_point_pair(top, dark_blue)
-    sc.add_point_pair(right, dark_blue)
-    sc.add_point_pair(bottom, dark_blue)
-    sc.add_point_pair(left, dark_blue)
-    sc.add_point_pair(diag, dark_blue)
     sides = [top, right, bottom, left, diag]
     for side in sides:
         sc.add_point_pair(RMVR(side), dark_blue)
@@ -69,14 +60,10 @@ def drawScene():
     tr = new_line(eo, Ptr)
     bl = new_line(eo, Pbl)
     br = new_line(eo, Pbr)
-    sc.add_line(tl, red)
-    sc.add_line(tr, green)
-    sc.add_line(br, blue)
-    sc.add_line(bl, yellow)
 
     lines = [tl, tr, br, bl]
     for line in lines:
-        sc.add_line(RMVR(line).normal(),magenta)
+        sc.add_line(RMVR(line).normal(),dark_blue)
     for objects in scene:
         sc.add_sphere(objects.object, objects.getColour())
     sc.add_euc_point(up(L), yellow)
@@ -162,9 +149,9 @@ def RMVR(mv):
     return (MVR*mv*~MVR)
 
 # Light position and color.
-L = e1 + 10.*e3 -10.*e2
+L = -10.*e1 + 10.*e3 + 4.*e2
 colour_light = np.ones(3)
-ambient = 1.
+ambient = 0.3
 options = {'ambient': True, 'specular': True, 'diffuse': True}
 
 #Define background colour
@@ -173,8 +160,8 @@ background = np.array([0., 0., 0.])
 
 #add objects to the scene!
 scene = []
-scene.append(Sphere(-2.*e1 + 0.2*e2, 4., np.array([1., 145./255., 0.]), 1., 100., .05, 1., 0.1))
-scene.append(Sphere(6.*e1 + 5.*e2, 4., np.array([1., 0., 0.]), 1., 100., .05, 1., 0.1))
+scene.append(Sphere(-2.*e1 + 0.2*e2, 4., np.array([1., 145./255., 0.]), 1., 100., 1., 1., 0.1))
+scene.append(Sphere(6.*e1 + 5.*e2, 4., np.array([1., 0., 0.]), 1., 100., 1., 1., 0.1))
 
 #Pixel resolution
 w = 400
