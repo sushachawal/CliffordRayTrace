@@ -82,6 +82,17 @@ def new_point_pair(p1, p2):
 def unsign_sphere(S):
     return (S/(S.dual()|einf)[0]).normal()
 
+@numba.njit
+def val_pointofXSphere(ray_val, sphere_val, origin_val):
+    B = meet_val(ray_val,sphere_val)
+    if gmt_func(B,B)[0] > 0.000001:
+        point_vals = val_point_pair_to_end_points(B)
+        if (imt_func(point_vals[0,:],origin_val)[0] > imt_func(point_vals[1,:],origin_val)[0]):
+            return point_vals[0,:]
+    output = np.zeros(32)
+    output[0] = -1
+    return output
+
 def pointofXsphere(ray, sphere, origin):
     B = meet(ray, sphere)
     if((B**2)[0] > 0.000001):
@@ -94,9 +105,10 @@ def cosangle_between_lines(l1, l2):
     return (l1|l2)[0]#/(math.sqrt(abs((l1**2)[0]))*math.sqrt(abs((l2**2)[0]))))[0]
 
 def PointsFromPP(mv):
-    P = 0.5*(1+(1/np.sqrt((mv**2)[0]))*mv)
-    temp = mv|einf
-    return(normalise_n_minus_1(-~P*temp*P) , normalise_n_minus_1(P*temp*~P))
+    #P = 0.5*(1+(1/math.sqrt((mv**2)[0]))*mv)
+    #temp = mv|einf
+    #return(normalise_n_minus_1(-~P*temp*P) , normalise_n_minus_1(P*temp*~P))
+    return point_pair_to_end_points(mv)
 
 def reflect_in_sphere(ray, sphere, pX):
         return(normalised((pX|(sphere*ray*sphere))^einf))
@@ -106,14 +118,14 @@ def intersects(ray, scene, origin):
     index = None
     pXfin = None
     for idx, obj in enumerate(scene):
-        pX = pointofXsphere(ray, obj.object, origin)
-        if(pX is None): continue
+        pX = val_pointofXSphere(ray.value, obj.object.value, origin.value)
+        if(pX[0] ==-1): continue
         if(idx == 0):
-            dist, index, pXfin = (pX | origin)[0] , idx , pX
+            dist, index, pXfin = imt_func(pX, origin.value)[0] , idx , layout.MultiVector(value=pX)
             continue
-        t = (pX | origin)[0]
+        t = imt_func(pX, origin.value)[0]
         if(t > dist):
-            dist, index, pXfin = t, idx, pX
+            dist, index, pXfin = t, idx, layout.MultiVector(value=pX)
     return pXfin, index
 
 def trace_ray(ray, scene,origin, depth):
@@ -122,7 +134,7 @@ def trace_ray(ray, scene,origin, depth):
     if(index is None): return background
     obj = scene[index]
     # sc = GAScene()
-    toL = normalised(pX ^up(L)^einf)
+    toL = layout.MultiVector(value = val_normalised(omt_func(omt_func(pX.value,up(L).value),einf.value)))
     if(options['ambient']):
         pixel_col += ambient*obj.ambient*obj.colour
     if(intersects(toL, scene[:index] + scene[index+1:], pX)[0] is not None):
