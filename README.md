@@ -10,7 +10,6 @@ This project uses [Conformal Geometric Algebra (CGA)][cga] to build a ray tracin
 
 <figure>
 <img src="https://github.com/sushachawal/CliffordRayTrace/blob/master/Example.png?raw=true" alt="drawing" width="100%"/>
-<figcaption style = "text-align: center"><b>An example rendering (Render time ~50s)</b></figcaption>
 </figure>
 
 ## Usage:
@@ -37,7 +36,6 @@ Copy and paste the terminal output into the **box outlined in red** in the [GAOn
 
 <figure>
 <img src="https://github.com/sushachawal/CliffordRayTrace/blob/master/GAOnline.png?raw=true" alt="drawing" width="100%"/>
-<figcaption style = "text-align: center"><b>An example view in GAOnline</b></figcaption>
 </figure>
 
 The output draws:
@@ -46,8 +44,31 @@ The output draws:
 2. **Objects in the scene:** Object geometry and colour.
 3. **Lighting:** Position will be drawn as yellow point inside a sphere.
 
+## Planned Future Work:
+
+* Acceleration with [Numba][Numba] starting with the `PointsFromPP` function.
+* A front-end to interact with the view as in [GAOnline][GAOnline].
+* Ability to draw planes.
+* Ability to draw meshes.
+* Full parallelisation either with [Numba][Numba] or on the GPU.
+
+## Read about Geometric Algebra!
+
+[Geometric Algebra][ga] is a super exciting field for exploring 3D geometry and beyond. For further reading into GA see:
+
+* [Mathoma's tutorials][YTtuts] are super cool and provide a good start. Skip to the 9th video if you have some basic understanding of linear algebra in 3D.
+
+* Many of the concepts used in the ray tracer can be found in *A Covariant Approach to Geometry using Geometric Algebra* which can be found online [here][CovApp]. The report really summarises the power of working in the conformal model.
+
+* For a more complete introduction to GA check out *Geometric Algebra for Physicists* and for a deeper look into GA theory: *Geometric Algebra for Computer Science: An Object-Oriented Approach to Geometry* [(companion site here)][GAforCompSci] which includes documentation of another ray tracer implemented in GA!
+
 [cga]: https://en.wikipedia.org/wiki/Conformal_geometric_algebra
 [clifford]: https://github.com/pygae/clifford
 [NumPy]: https://github.com/numpy/numpy
 [matplotlib]: https://github.com/matplotlib/matplotlib
 [GAOnline]: https://gaonline.herokuapp.com/
+[Numba]: https://github.com/numba/numba
+[ga]: https://en.wikipedia.org/wiki/Geometric_algebra
+[YTtuts]: https://www.youtube.com/watch?v=PNlgMPzj-7Q&list=PLpzmRsG7u_gqaTo_vEseQ7U8KFvtiJY4K
+[CovApp]: http://www2.montgomerycollege.edu/departments/planet/planet/Numerical_Relativity/GA-SIG/Conformal%20Geometry%20Papers/Cambridge/Covarient%20Approach%20to%20Geometry%20Using%20Geometric%20Algebra.pdf
+[GAforCompSci]: http://www.geometricalgebra.net/
