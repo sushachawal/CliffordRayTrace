@@ -2,7 +2,6 @@ from clifford.tools.g3c import *
 from clifford.tools.g3c.GAOnline import *
 import numpy as np
 from numpy import e, pi
-import math
 import matplotlib.pyplot as plt
 import time
 
@@ -95,7 +94,7 @@ def cosangle_between_lines(l1, l2):
     return (l1|l2)[0]#/(math.sqrt(abs((l1**2)[0]))*math.sqrt(abs((l2**2)[0]))))[0]
 
 def PointsFromPP(mv):
-    P = 0.5*(1+(1/math.sqrt((mv**2)[0]))*mv)
+    P = 0.5*(1+(1/np.sqrt((mv**2)[0]))*mv)
     temp = mv|einf
     return(normalise_n_minus_1(-~P*temp*P) , normalise_n_minus_1(P*temp*~P))
 
