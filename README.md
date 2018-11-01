@@ -51,6 +51,7 @@ The output draws:
 * Ability to draw planes.
 * Ability to draw meshes.
 * Full parallelisation either with [Numba][Numba] or on the GPU.
+* Implement a [BSP-Tree][BSP] to accelerate intersection tests.
 
 ## Read about Geometric Algebra!
 
@@ -72,3 +73,4 @@ The output draws:
 [YTtuts]: https://www.youtube.com/watch?v=PNlgMPzj-7Q&list=PLpzmRsG7u_gqaTo_vEseQ7U8KFvtiJY4K
 [CovApp]: http://www2.montgomerycollege.edu/departments/planet/planet/Numerical_Relativity/GA-SIG/Conformal%20Geometry%20Papers/Cambridge/Covarient%20Approach%20to%20Geometry%20Using%20Geometric%20Algebra.pdf
 [GAforCompSci]: http://www.geometricalgebra.net/
+[BSP]: https://en.wikipedia.org/wiki/Binary_space_partitioning
