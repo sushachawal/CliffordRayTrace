@@ -175,8 +175,8 @@ scene.append(Sphere(-2.*e1 + 0.2*e2, 4., np.array([1., 145./255., 0.]), 1., 100.
 scene.append(Sphere(6.*e1 + 5.*e2, 4., np.array([1., 0., 0.]), 1., 100., 1., 1., 0.1))
 
 #Pixel resolution
-w = 400
-h = 300
+w = 800
+h = 600
 max_depth = 4
 
 #Camera definitions
