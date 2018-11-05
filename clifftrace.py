@@ -1,7 +1,7 @@
 from clifford.tools.g3c import *
 from clifford.tools.g3c.GAOnline import *
 import numpy as np
-import matplotlib.pyplot as plt
+from PIL import Image
 import time
 
 red = 'rgb(255, 0 , 0)'
@@ -203,17 +203,14 @@ def trace_ray(ray, scene, origin, depth):
         reflected = layout.MultiVector(value=(gmt_func(gmt_func(obj.object.value, ray.value), obj.object.value)))
 
     norm = normalised(reflected - ray)
-    #sc.add_line(norm.normal())
-    # sc.add_line(toL, green)
-    # sc.add_line(ray, cyan)
-    # sc.add_line((toL - ray).normal())
-    #Norm is not consistent!!!! NEED TO SORT OUT SIGN CONSISTENCY
-    #print(sc)
+
     if options['specular']:
         pixel_col += Satt * obj.specular * \
                      max(cosangle_between_lines(norm, normalised(toL-ray)), 0) ** obj.spec_k * colour_light
+
     if options['diffuse']:
         pixel_col += Satt * obj.diffuse * max(cosangle_between_lines(norm, toL), 0) * obj.colour
+
     if depth >= max_depth:
         return pixel_col
 
@@ -224,35 +221,34 @@ def trace_ray(ray, scene, origin, depth):
 def RMVR(mv):
     return apply_rotor(mv, MVR)
 
+
 # Light position and color.
 L = -10.*e1 + 30.*e3 + 4.*e2
 colour_light = np.ones(3)
 ambient = 0.5
-options = {'ambient': True, 'specular': True, 'diffuse': True}
 
-#Define background colour
-#background = np.array([0., 154./255., 1.])
+# Shading options
+w = 1600
+h = 1200
+options = {'ambient': True, 'specular': True, 'diffuse': True}
+max_depth = 1
 background = np.array([0., 0., 0.])
 
-#add objects to the scene!
+# Add objects to the scene:
 scene = []
 scene.append(Sphere(-2.*e1 + -5.2*e2 + 4.*e3, 4., np.array([1., 0., 0.]), 1., 100., 1., 1., 0.1))
 scene.append(Sphere(6.*e1 + 4.*e3, 4., np.array([0., 0., 1.]), 1., 100., 1., 1., 0.1))
-scene.append(Plane(20.*e2+ e1, 20.*e2, 21.*e2, np.array([0.7, 0.7, 0.7]), 0.5, 100., 1., 0.5, 0.3))
+scene.append(Plane(20.*e2+ e1, 20.*e2, 21.*e2, np.array([1., 1., 1.]), 0.5, 100., 1., 0.5, 0.3))
 
-#Pixel resolution
-w = 800
-h = 600
-max_depth = 1
-
-#Camera definitions
-cam =  4.*e3 - 20.*e2
+# Camera definitions
+cam = 4.*e3 - 20.*e2
 lookat = eo
 upcam = up(cam)
 f = 1.
 xmax = 1.0
-ymax  = xmax*(h*1.0/w)
-#No need to define the up vector since we're assuming it's e3 pre-transform.
+ymax = xmax*(h*1.0/w)
+
+# No need to define the up vector since we're assuming it's e3 pre-transform.
 
 start_time = time.time()
 
@@ -270,18 +266,18 @@ drawScene()
 img = np.zeros((h, w, 3))
 initial = RMVR(up(Ptl))
 for i in range(0, w):
-    if i%10 == 0:
+    if i % 10 == 0:
         print(i/w * 100, "%")
     point = initial
-    line = (upcam ^ initial ^ einf).normal()
+    line = normalised(upcam ^ initial ^ einf)
     for j in range(0, h):
-        img[j, i, :] = np.clip(trace_ray(line, scene, upcam, 0), 0, 1)
+        img[j, i, :] = np.clip(trace_ray(line, scene, upcam, 0), 0, 1)*255.
         point = apply_rotor(point, dTy)
-        line = (upcam ^ point ^ einf).normal()
+        line = normalised(upcam ^ point ^ einf)
 
     initial = apply_rotor(initial, dTx)
 
-plt.imsave('fig.png', img)
+Image.fromarray(img.astype('uint8'), 'RGB').save('fig.png')
 
 print("\n\n")
 print("--- %s seconds ---" % (time.time() - start_time))
