@@ -106,3 +106,4 @@ venv.bak/
 # MacStuff
 
 .DS_Store
+.idea
