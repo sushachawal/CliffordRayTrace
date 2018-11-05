@@ -184,7 +184,7 @@ def intersects(ray, scene, origin):
     return pXfin, index
 
 
-def trace_ray(ray, scene,origin, depth):
+def trace_ray(ray, scene, origin, depth):
     pixel_col = np.zeros(3)
     Satt = 1.
     pX, index = intersects(ray, scene, origin)
@@ -236,9 +236,9 @@ background = np.array([0., 0., 0.])
 
 #add objects to the scene!
 scene = []
-scene.append(Sphere(-2.*e1 + -5.2*e2 + 4.*e3, 4., np.array([1., 0., 0.]), 1., 100., 1., 1., 0.))
-scene.append(Sphere(6.*e1 + 4.*e3, 4., np.array([0., 0., 1.]), 1., 100., 1., 1., 0.))
-scene.append(Plane(20.*e2+ e1, 20.*e2, 21.*e2, np.array([0.7, 0.7, 0.7]), 0.5, 100., 1., 0.5, 1.))
+scene.append(Sphere(-2.*e1 + -5.2*e2 + 4.*e3, 4., np.array([1., 0., 0.]), 1., 100., 1., 1., 0.1))
+scene.append(Sphere(6.*e1 + 4.*e3, 4., np.array([0., 0., 1.]), 1., 100., 1., 1., 0.1))
+scene.append(Plane(20.*e2+ e1, 20.*e2, 21.*e2, np.array([0.7, 0.7, 0.7]), 0.5, 100., 1., 0.5, 0.3))
 
 #Pixel resolution
 w = 800

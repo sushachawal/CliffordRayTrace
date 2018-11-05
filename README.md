@@ -8,8 +8,10 @@ This project uses [Conformal Geometric Algebra (CGA)][cga] to build a ray tracin
 * Spherical objects **only**
 * A single point light source
 
+Here is the latest rendering from the code in the repo:
+
 <figure>
-<img src="https://github.com/sushachawal/CliffordRayTrace/blob/master/Example.png?raw=true" alt="drawing" width="100%"/>
+<img src="https://github.com/sushachawal/CliffordRayTrace/blob/master/fig.png?raw=true" alt="drawing" width="100%"/>
 </figure>
 
 ## Usage:
