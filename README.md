@@ -46,7 +46,7 @@ The output draws:
 
 ## Planned Future Work:
 
-* Acceleration with [Numba][Numba] starting with the `PointsFromPP` function.
+* ~~Acceleration with [Numba][Numba] starting with the `PointsFromPP` function.~~
 * A front-end to interact with the view as in [GAOnline][GAOnline]. (With Tkinter? PyGame?)
 * Ability to draw planes.
 * Ability to draw meshes.
