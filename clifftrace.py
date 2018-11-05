@@ -12,15 +12,16 @@ magenta = 'rgb(255, 0, 255)'
 cyan = 'rgb(0,255,255)'
 black = 'rgb(0,0,0)'
 dark_blue = 'rgb(8, 0, 84)'
+db = [0.033, 0., 0.33]
 
 
 class Sphere:
-    def __init__(self, c, r, colour, specular, spec_k, ambient, diffuse, reflection):
+    def __init__(self, c, r, colour, specular, spec_k, amb, diffuse, reflection):
         self.object = new_sphere(c + r*e1, c + r*e2, c + r*e3, c - r*e1)
         self.colour = colour
         self.specular = specular
         self.spec_k = spec_k
-        self.ambient = ambient
+        self.ambient = amb
         self.diffuse = diffuse
         self.reflection = reflection
         self.type = "Sphere"
@@ -30,12 +31,12 @@ class Sphere:
 
 
 class Plane:
-    def __init__(self, p1, p2, p3, colour, specular, spec_k, ambient, diffuse, reflection):
+    def __init__(self, p1, p2, p3, colour, specular, spec_k, amb, diffuse, reflection):
         self.object = new_plane(p1, p2, p3)
         self.colour = colour
         self.specular = specular
         self.spec_k = spec_k
-        self.ambient = ambient
+        self.ambient = amb
         self.diffuse = diffuse
         self.reflection = reflection
         self.type = "Plane"
@@ -138,7 +139,7 @@ def val_pointofXplane(ray_val, plane_val, origin_val):
     pX = val_intersect_line_and_plane_to_point(ray_val, plane_val)
     if pX[0] == -1.:
         return pX
-    if imt_func(ray_val, val_normalised(omt_func(origin_val, omt_func(pX, ninf_val))))[0] < 0:
+    if imt_func(ray_val, val_normalised(omt_func(origin_val, omt_func(pX, ninf_val))))[0] > 0:
         return pX
     return np.array([-1.])
 
@@ -171,7 +172,7 @@ def intersects(ray, scene, origin):
         if obj.type == "Sphere":
             pX = val_pointofXSphere(ray.value, obj.object.value, origin.value)
         if obj.type == "Plane":
-            pX = val_intersect_line_and_plane_to_point(ray.value, obj.object.value)
+            pX = val_pointofXplane(ray.value, obj.object.value, origin.value)
 
         if pX[0] == -1.: continue
         if idx == 0:
@@ -187,14 +188,15 @@ def trace_ray(ray, scene,origin, depth):
     pixel_col = np.zeros(3)
     Satt = 1.
     pX, index = intersects(ray, scene, origin)
-    if index is None: return background
+    if index is None:
+        return background
     obj = scene[index]
     # sc = GAScene()
     toL = layout.MultiVector(value=val_normalised(omt_func(omt_func(pX.value, up(L).value), einf.value)))
     if options['ambient']:
         pixel_col += ambient*obj.ambient*obj.colour
     if(intersects(toL, scene[:index] + scene[index+1:], pX)[0] is not None):
-        Satt *= 0.1
+        Satt *= 0.3
     if obj.type == "Sphere":
         reflected = -1.*reflect_in_sphere(ray, obj.object, pX)
     else:
@@ -212,8 +214,9 @@ def trace_ray(ray, scene,origin, depth):
                      max(cosangle_between_lines(norm, normalised(toL-ray)), 0) ** obj.spec_k * colour_light
     if options['diffuse']:
         pixel_col += Satt * obj.diffuse * max(cosangle_between_lines(norm, toL), 0) * obj.colour
-    if depth == max_depth:
+    if depth >= max_depth:
         return pixel_col
+
     pixel_col += obj.reflection * trace_ray(reflected, scene, pX, depth + 1)
     return pixel_col
 
@@ -224,7 +227,7 @@ def RMVR(mv):
 # Light position and color.
 L = -10.*e1 + 30.*e3 + 4.*e2
 colour_light = np.ones(3)
-ambient = 0.3
+ambient = 0.5
 options = {'ambient': True, 'specular': True, 'diffuse': True}
 
 #Define background colour
@@ -233,14 +236,14 @@ background = np.array([0., 0., 0.])
 
 #add objects to the scene!
 scene = []
-scene.append(Sphere(-2.*e1 + -5.2*e2 + 4.*e3, 4., np.array([0.7, 0.7, 0.7]), 1., 100., 1., 1., 1.))
-scene.append(Sphere(6.*e1 + 4.*e3, 4., np.array([0.7, 0.7, 0.7]), 1., 100., 1., 1., 1.))
-scene.append(Plane(20.*e2+ e1, 20.*e2, 21.*e2, np.array([0.033, 0., 0.33]), 1., 100., 1., 1., 0.))
+scene.append(Sphere(-2.*e1 + -5.2*e2 + 4.*e3, 4., np.array([1., 0., 0.]), 1., 100., 1., 1., 0.))
+scene.append(Sphere(6.*e1 + 4.*e3, 4., np.array([0., 0., 1.]), 1., 100., 1., 1., 0.))
+scene.append(Plane(20.*e2+ e1, 20.*e2, 21.*e2, np.array([0.7, 0.7, 0.7]), 0.5, 100., 1., 0.5, 1.))
 
 #Pixel resolution
 w = 800
 h = 600
-max_depth = 2
+max_depth = 1
 
 #Camera definitions
 cam =  4.*e3 - 20.*e2
@@ -261,33 +264,6 @@ dTx = MVR*generate_translation_rotor((2*xmax/(w-1))*e1)*~MVR
 dTy = MVR*generate_translation_rotor(-(2*ymax/(h-1))*e3)*~MVR
 
 Ptl = f*1.0*e2 - e1*xmax + e3*ymax
-
-
-# line = new_line(10.*e3, 10.*e2)
-# plane = -1. * new_plane(10.*e2 + e1, 10.*e2, 10.*e2 + e3)
-# plane2 = new_plane(-10.*e2 + e1, -10.*e2, -10.*e2+e3)
-#
-# point = pointofXplane(line, plane, up(eo))
-# point2 = pointofXplane(line, plane2, up(eo))
-#
-# sc = GAScene()
-# sc.add_line(line)
-#
-# sc.add_plane(plane)
-# sc.add_plane(plane2)
-# if point is not None:
-#     sc.add_euc_point(point, magenta)
-#     sc.add_point_pair(up(10.*e3) ^ point, green)
-#     chosen_plane = plane
-# if point2 is not None:
-#     sc.add_euc_point(point2, magenta)
-#     sc.add_point_pair(up(10.*e3) ^ point2, green)
-#     chosen_plane = plane2
-#
-# reflected = layout.MultiVector(value=(gmt_func(gmt_func(chosen_plane.value, line.value), chosen_plane.value)))
-# sc.add_line(reflected, blue)
-# print(sc)
-
 
 drawScene()
 
