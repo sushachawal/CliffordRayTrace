@@ -42,7 +42,7 @@ class Plane:
         self.type = "Plane"
 
     def getColour(self):
-        return "rgb(%d, %d, %d)"% (int(self.colour[0]*255), int(self.colour[1]*255), int(self.colour[2]*255))
+        return "rgb(%d, %d, %d)" % (int(self.colour[0]*255), int(self.colour[1]*255), int(self.colour[2]*255))
 
 
 def drawScene():
@@ -110,7 +110,7 @@ def new_point_pair(p1, p2):
 
 
 def unsign_sphere(S):
-    return (S/(S.dual()|einf)[0]).normal()
+    return normalised(S/(S.dual()|einf)[0])
 
 
 @numba.njit
@@ -118,7 +118,7 @@ def val_pointofXSphere(ray_val, sphere_val, origin_val):
     B = meet_val(ray_val, sphere_val)
     if gmt_func(B,B)[0] > 0.000001:
         point_vals = val_point_pair_to_end_points(B)
-        if (imt_func(point_vals[0,:],origin_val)[0] > imt_func(point_vals[1,:],origin_val)[0]):
+        if imt_func(point_vals[0,:],origin_val)[0] > imt_func(point_vals[1,:],origin_val)[0]:
             return point_vals[0,:]
     output = np.zeros(32)
     output[0] = -1
@@ -139,9 +139,13 @@ def val_pointofXplane(ray_val, plane_val, origin_val):
     pX = val_intersect_line_and_plane_to_point(ray_val, plane_val)
     if pX[0] == -1.:
         return pX
-    if imt_func(ray_val, val_normalised(omt_func(origin_val, omt_func(pX, ninf_val))))[0] > 0:
+    new_line = omt_func(origin_val, omt_func(pX, ninf_val))
+    if abs((gmt_func(new_line, new_line))[0]) < 0.00001:
+        return np.array([-1.])
+    if imt_func(ray_val, val_normalised(new_line))[0] > 0:
         return pX
     return np.array([-1.])
+
 
 def pointofXplane(ray, plane, origin):
     p = val_pointofXplane(ray.value, plane.value, origin.value)
@@ -149,19 +153,25 @@ def pointofXplane(ray, plane, origin):
         return None
     return layout.MultiVector(value=p)
 
+
 def cosangle_between_lines(l1, l2):
-    return (l1 | l2)[0]#/(math.sqrt(abs((l1**2)[0]))*math.sqrt(abs((l2**2)[0]))))[0]
+    return (l1 | l2)[0]
+
+
+def getfattconf(inner_prod, a1, a2, a3):
+    return min(1./(a1 + a2 * np.sqrt(-inner_prod) - a3*inner_prod), 1.)
+
+
+def getfatt(d, a1, a2, a3):
+    return min(1./(a1 + a2*d + a3*d*d), 1.)
 
 
 def PointsFromPP(mv):
-    #P = 0.5*(1+(1/math.sqrt((mv**2)[0]))*mv)
-    #temp = mv|einf
-    #return(normalise_n_minus_1(-~P*temp*P) , normalise_n_minus_1(P*temp*~P))
     return point_pair_to_end_points(mv)
 
 
 def reflect_in_sphere(ray, sphere, pX):
-        return(normalised((pX|(sphere*ray*sphere))^einf))
+        return normalised((pX|(sphere*ray*sphere))^einf)
 
 
 def intersects(ray, scene, origin):
@@ -192,11 +202,17 @@ def trace_ray(ray, scene, origin, depth):
         return background
     obj = scene[index]
     # sc = GAScene()
-    toL = layout.MultiVector(value=val_normalised(omt_func(omt_func(pX.value, up(L).value), einf.value)))
+    upl_val = val_up(L.value)
+    toL = layout.MultiVector(value=val_normalised(omt_func(omt_func(pX.value, upl_val), einf.value)))
+    d = layout.MultiVector(value=imt_func(pX.value, upl_val))[0]
+
+    # TODO: Investigate why the inclusion of the ambient term leads to noise in the plane
+
     if options['ambient']:
-        pixel_col += ambient*obj.ambient*obj.colour
-    if(intersects(toL, scene[:index] + scene[index+1:], pX)[0] is not None):
-        Satt *= 0.3
+        pixel_col += ambient * obj.ambient * obj.colour
+
+    if intersects(toL, scene[:index] + scene[index+1:], pX)[0] is not None:
+        Satt *= 0.8
     if obj.type == "Sphere":
         reflected = -1.*reflect_in_sphere(ray, obj.object, pX)
     else:
@@ -204,17 +220,18 @@ def trace_ray(ray, scene, origin, depth):
 
     norm = normalised(reflected - ray)
 
+    fatt = getfattconf(d, a1, a2, a3)
+
     if options['specular']:
-        pixel_col += Satt * obj.specular * \
+        pixel_col += Satt * fatt * obj.specular * \
                      max(cosangle_between_lines(norm, normalised(toL-ray)), 0) ** obj.spec_k * colour_light
 
     if options['diffuse']:
-        pixel_col += Satt * obj.diffuse * max(cosangle_between_lines(norm, toL), 0) * obj.colour
+        pixel_col += Satt * fatt * obj.diffuse * max(cosangle_between_lines(norm, toL), 0) * obj.colour
 
     if depth >= max_depth:
         return pixel_col
-
-    pixel_col += obj.reflection * trace_ray(reflected, scene, pX, depth + 1)
+    pixel_col += obj.reflection * trace_ray(reflected, scene, pX, depth + 1) / ((depth + 1) ** 2)
     return pixel_col
 
 
@@ -225,20 +242,25 @@ def RMVR(mv):
 # Light position and color.
 L = -10.*e1 + 30.*e3 + 4.*e2
 colour_light = np.ones(3)
-ambient = 0.5
+
 
 # Shading options
+a1 = 0.02
+a2 = 0.0
+a3 = 0.002
 w = 1600
 h = 1200
 options = {'ambient': True, 'specular': True, 'diffuse': True}
-max_depth = 1
-background = np.array([0., 0., 0.])
+ambient = 0.5
+k = 1.  # Magic constant to scale everything by the same amount!
+max_depth = 2
+background = np.zeros(3) # [66./520., 185./510., 244./510.]
 
 # Add objects to the scene:
 scene = []
-scene.append(Sphere(-2.*e1 + -5.2*e2 + 4.*e3, 4., np.array([1., 0., 0.]), 1., 100., 1., 1., 0.1))
-scene.append(Sphere(6.*e1 + 4.*e3, 4., np.array([0., 0., 1.]), 1., 100., 1., 1., 0.1))
-scene.append(Plane(20.*e2+ e1, 20.*e2, 21.*e2, np.array([1., 1., 1.]), 0.5, 100., 1., 0.5, 0.3))
+scene.append(Sphere(-2.*e1 - 7.2*e2 + 4.*e3, 4., np.array([1., 0., 0.]), k*1., 50., k*0.7, k*1., k*0.1))
+scene.append(Sphere(6.*e1 - 2.0*e2 + 4.*e3, 4., np.array([0., 0., 1.]), k*1., 50., k*0.7, k*1., k*0.1))
+scene.append(Plane(20.*e2+ e1, 20.*e2, 21.*e2, np.array([0.8, 0.8, 0.8]), k*0.3, 100., k*0.5, k*1., k*0.6))
 
 # Camera definitions
 cam = 4.*e3 - 20.*e2
@@ -252,7 +274,7 @@ ymax = xmax*(h*1.0/w)
 
 start_time = time.time()
 
-#Get all of the required initial transformations
+# Get all of the required initial transformations
 optic_axis = new_line(cam, lookat)
 original = new_line(eo, e2)
 MVR = generate_translation_rotor(cam)*rotor_between_lines(original, optic_axis)
@@ -263,21 +285,33 @@ Ptl = f*1.0*e2 - e1*xmax + e3*ymax
 
 drawScene()
 
-img = np.zeros((h, w, 3))
-initial = RMVR(up(Ptl))
-for i in range(0, w):
-    if i % 10 == 0:
-        print(i/w * 100, "%")
-    point = initial
-    line = normalised(upcam ^ initial ^ einf)
-    for j in range(0, h):
-        img[j, i, :] = np.clip(trace_ray(line, scene, upcam, 0), 0, 1)*255.
-        point = apply_rotor(point, dTy)
-        line = normalised(upcam ^ point ^ einf)
 
-    initial = apply_rotor(initial, dTx)
+def render():
+    img = np.zeros((h, w, 3))
+    initial = RMVR(up(Ptl))
+    clipped = 0
+    for i in range(0, w):
+        if i % 10 == 0:
+            print(i/w * 100, "%")
+        point = initial
+        line = normalised(upcam ^ initial ^ einf)
+        for j in range(0, h):
+            value = trace_ray(line, scene, upcam, 0)
+            new_value = np.clip(value, 0, 1)
+            if np.any(value > 1.) or np.any(value < 0.):
+                clipped += 1
+            img[j, i, :] = new_value * 255.
+            point = apply_rotor(point, dTy)
+            line = normalised(upcam ^ point ^ einf)
 
-Image.fromarray(img.astype('uint8'), 'RGB').save('fig.png')
+        initial = apply_rotor(initial, dTx)
+    print("Total number of pixels clipped = %d" % clipped)
+    return img
+
+
+im1 = Image.fromarray(render().astype('uint8'), 'RGB')
+im1.save('fig.png')
+
 
 print("\n\n")
 print("--- %s seconds ---" % (time.time() - start_time))
