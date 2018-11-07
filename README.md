@@ -5,7 +5,7 @@ This project uses [Conformal Geometric Algebra (CGA)][cga] to build a ray tracin
 * Recursive tracing of reflected rays up to a specified max depth
 * A Blinn-Phong lighting model
 * Shadows
-* Spherical objects **only**
+* Spherical objects and planes **only**
 * A single point light source
 
 Here is the latest rendering from the code in the repo:
@@ -22,7 +22,7 @@ Run the script with `python3 clifftrace.py`
 The script requires the following non-standard python packages:
 * [clifford][clifford]
 * [NumPy][NumPy]
-* [matplotlib][matplotlib]
+* [Pillow][Pillow]
 
 ### Interface with GAOnline:
 
@@ -76,3 +76,4 @@ The output draws:
 [CovApp]: http://www2.montgomerycollege.edu/departments/planet/planet/Numerical_Relativity/GA-SIG/Conformal%20Geometry%20Papers/Cambridge/Covarient%20Approach%20to%20Geometry%20Using%20Geometric%20Algebra.pdf
 [GAforCompSci]: http://www.geometricalgebra.net/
 [BSP]: https://en.wikipedia.org/wiki/Binary_space_partitioning
+[Pillow]: https://github.com/python-pillow/Pillow
