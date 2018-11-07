@@ -50,10 +50,11 @@ The output draws:
 
 * ~~Acceleration with [Numba][Numba] starting with the `PointsFromPP` function.~~
 * A front-end to interact with the view as in [GAOnline][GAOnline]. (With Tkinter? PyGame?)
-* Ability to draw planes.
+* ~~Ability to draw planes.~~
 * Ability to draw meshes.
 * Full parallelisation either with [Numba][Numba] or on the GPU.
 * Implement a [BSP-Tree][BSP] to accelerate intersection tests.
+* Change the sphere intersection test to imitate that of the plane
 
 ## Read about Geometric Algebra!
 
