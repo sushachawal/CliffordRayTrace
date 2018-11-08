@@ -45,6 +45,12 @@ class Plane:
         return "rgb(%d, %d, %d)" % (int(self.colour[0]*255), int(self.colour[1]*255), int(self.colour[2]*255))
 
 
+class Light:
+    def __init__(self, position, colour):
+        self.position = position
+        self.colour = colour
+
+
 def drawScene():
     Ptr = Ptl + 2*e1*xmax
     Pbl = Ptl - 2*e3*ymax
@@ -87,8 +93,10 @@ def drawScene():
             sc.add_sphere(objects.object, objects.getColour())
         else:
             sc.add_plane(objects.object, objects.getColour())
-    sc.add_euc_point(up(L), yellow)
-    sc.add_sphere(new_sphere(L + e1, L+e2, L+e3, L-e1), yellow)
+    for light in lights:
+        l = light.position
+        sc.add_euc_point(up(l), yellow)
+        sc.add_sphere(new_sphere(l + e1, l+e2, l+e3, l-e1), yellow)
 
     print(sc)
 
@@ -196,38 +204,36 @@ def intersects(ray, scene, origin):
 
 def trace_ray(ray, scene, origin, depth):
     pixel_col = np.zeros(3)
-    Satt = 1.
     pX, index = intersects(ray, scene, origin)
     if index is None:
         return background
     obj = scene[index]
-    # sc = GAScene()
-    upl_val = val_up(L.value)
-    toL = layout.MultiVector(value=val_normalised(omt_func(omt_func(pX.value, upl_val), einf.value)))
-    d = layout.MultiVector(value=imt_func(pX.value, upl_val))[0]
+    for light in lights:
+        Satt = 1.
+        upl_val = val_up(light.position.value)
+        toL = layout.MultiVector(value=val_normalised(omt_func(omt_func(pX.value, upl_val), einf.value)))
+        d = layout.MultiVector(value=imt_func(pX.value, upl_val))[0]
 
-    # TODO: Investigate why the inclusion of the ambient term leads to noise in the plane
+        if options['ambient']:
+            pixel_col += ambient * obj.ambient * obj.colour
 
-    if options['ambient']:
-        pixel_col += ambient * obj.ambient * obj.colour
+        if intersects(toL, scene[:index] + scene[index+1:], pX)[0] is not None:
+            Satt *= 0.8
+        if obj.type == "Sphere":
+            reflected = -1.*reflect_in_sphere(ray, obj.object, pX)
+        else:
+            reflected = layout.MultiVector(value=(gmt_func(gmt_func(obj.object.value, ray.value), obj.object.value)))
 
-    if intersects(toL, scene[:index] + scene[index+1:], pX)[0] is not None:
-        Satt *= 0.8
-    if obj.type == "Sphere":
-        reflected = -1.*reflect_in_sphere(ray, obj.object, pX)
-    else:
-        reflected = layout.MultiVector(value=(gmt_func(gmt_func(obj.object.value, ray.value), obj.object.value)))
+        norm = normalised(reflected - ray)
 
-    norm = normalised(reflected - ray)
+        fatt = getfattconf(d, a1, a2, a3)
 
-    fatt = getfattconf(d, a1, a2, a3)
+        if options['specular']:
+            pixel_col += Satt * fatt * obj.specular * \
+                         max(cosangle_between_lines(norm, normalised(toL-ray)), 0) ** obj.spec_k * light.colour
 
-    if options['specular']:
-        pixel_col += Satt * fatt * obj.specular * \
-                     max(cosangle_between_lines(norm, normalised(toL-ray)), 0) ** obj.spec_k * colour_light
-
-    if options['diffuse']:
-        pixel_col += Satt * fatt * obj.diffuse * max(cosangle_between_lines(norm, toL), 0) * obj.colour
+        if options['diffuse']:
+            pixel_col += Satt * fatt * obj.diffuse * max(cosangle_between_lines(norm, toL), 0) * obj.colour
 
     if depth >= max_depth:
         return pixel_col
@@ -240,8 +246,13 @@ def RMVR(mv):
 
 
 # Light position and color.
-L = -10.*e1 + 30.*e3 + 4.*e2
+lights = []
+L = -20.*e1 + 60.*e3 + 4.*e2
 colour_light = np.ones(3)
+lights.append(Light(L, colour_light))
+L = 20.*e1 + 60.*e3 + 4.*e2
+#colour_light = np.array([1., 0., 0.])
+lights.append(Light(L, colour_light))
 
 
 # Shading options
@@ -258,8 +269,8 @@ background = np.zeros(3) # [66./520., 185./510., 244./510.]
 
 # Add objects to the scene:
 scene = []
-scene.append(Sphere(-2.*e1 - 7.2*e2 + 4.*e3, 4., np.array([1., 0., 0.]), k*1., 50., k*0.7, k*1., k*0.1))
-scene.append(Sphere(6.*e1 - 2.0*e2 + 4.*e3, 4., np.array([0., 0., 1.]), k*1., 50., k*0.7, k*1., k*0.1))
+scene.append(Sphere(-2.*e1 - 7.2*e2 + 4.*e3, 4., np.array([1., 0., 0.]), k*1., 10., k*0.7, k*1., k*0.1))
+scene.append(Sphere(6.*e1 - 2.0*e2 + 4.*e3, 4., np.array([0., 0., 1.]), k*1., 10., k*0.7, k*1., k*0.1))
 scene.append(Plane(20.*e2+ e1, 20.*e2, 21.*e2, np.array([0.8, 0.8, 0.8]), k*0.3, 100., k*0.5, k*1., k*0.6))
 
 # Camera definitions
