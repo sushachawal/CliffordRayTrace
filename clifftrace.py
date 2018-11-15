@@ -219,6 +219,7 @@ def trace_ray(ray, scene, origin, depth):
 
         if intersects(toL, scene[:index] + scene[index+1:], pX)[0] is not None:
             Satt *= 0.8
+
         if obj.type == "Sphere":
             reflected = -1.*reflect_in_sphere(ray, obj.object, pX)
         else:
@@ -244,59 +245,6 @@ def trace_ray(ray, scene, origin, depth):
 def RMVR(mv):
     return apply_rotor(mv, MVR)
 
-
-# Light position and color.
-lights = []
-L = -20.*e1 + 60.*e3 + 4.*e2
-colour_light = np.ones(3)
-lights.append(Light(L, colour_light))
-L = 20.*e1 + 60.*e3 + 4.*e2
-#colour_light = np.array([1., 0., 0.])
-lights.append(Light(L, colour_light))
-
-
-# Shading options
-a1 = 0.02
-a2 = 0.0
-a3 = 0.002
-w = 1600
-h = 1200
-options = {'ambient': True, 'specular': True, 'diffuse': True}
-ambient = 0.3
-k = 1.  # Magic constant to scale everything by the same amount!
-max_depth = 2
-background = np.zeros(3) # [66./520., 185./510., 244./510.]
-
-# Add objects to the scene:
-scene = []
-scene.append(Sphere(-2.*e1 - 7.2*e2 + 4.*e3, 4., np.array([1., 0., 0.]), k*1., 100., k*1., k*1., k*0.1))
-scene.append(Sphere(6.*e1 - 2.0*e2 + 4.*e3, 4., np.array([0., 0., 1.]), k*1., 100., k*1., k*1., k*0.1))
-scene.append(Plane(20.*e2+ e1, 20.*e2, 21.*e2, np.array([0.8, 0.8, 0.8]), k*1., 100., k*1., k*1., k*0.1))
-
-# Camera definitions
-cam = 4.*e3 - 20.*e2
-lookat = eo
-upcam = up(cam)
-f = 1.
-xmax = 1.0
-ymax = xmax*(h*1.0/w)
-
-# No need to define the up vector since we're assuming it's e3 pre-transform.
-
-start_time = time.time()
-
-# Get all of the required initial transformations
-optic_axis = new_line(cam, lookat)
-original = new_line(eo, e2)
-MVR = generate_translation_rotor(cam)*rotor_between_lines(original, optic_axis)
-dTx = MVR*generate_translation_rotor((2*xmax/(w-1))*e1)*~MVR
-dTy = MVR*generate_translation_rotor(-(2*ymax/(h-1))*e3)*~MVR
-
-Ptl = f*1.0*e2 - e1*xmax + e3*ymax
-
-drawScene()
-
-
 def render():
     img = np.zeros((h, w, 3))
     initial = RMVR(up(Ptl))
@@ -319,10 +267,128 @@ def render():
     print("Total number of pixels clipped = %d" % clipped)
     return img
 
+if __name__ == "__main__":
+    # Light position and color.
+    lights = []
+    L = -20.*e1 + 60.*e3 + 4.*e2
+    colour_light = np.ones(3)
+    lights.append(Light(L, colour_light))
+    L = 20.*e1 + 60.*e3 + 4.*e2
+    lights.append(Light(L, colour_light))
 
-im1 = Image.fromarray(render().astype('uint8'), 'RGB')
-im1.save('fig.png')
+
+    # Shading options
+    a1 = 0.02
+    a2 = 0.0
+    a3 = 0.002
+    w = 1600
+    h = 1200
+    options = {'ambient': True, 'specular': True, 'diffuse': True}
+    ambient = 0.3
+    k = 1.  # Magic constant to scale everything by the same amount!
+    max_depth = 2
+    background = np.zeros(3) # [66./520., 185./510., 244./510.]
+
+    # Add objects to the scene:
+    scene = []
+    scene.append(Sphere(-2.*e1 - 7.2*e2 + 4.*e3, 4., np.array([1., 0., 0.]), k*1., 100., k*1., k*1., k*0.1))
+    scene.append(Sphere(6.*e1 - 2.0*e2 + 4.*e3, 4., np.array([0.2, 0.2, 0.2]), k*1., 100., k*0.2, k*1.0, k*1.))
+    scene.append(Plane(20.*e2+ e1, 20.*e2, 21.*e2, np.array([0.8, 0.8, 0.8]), k*1., 100., k*1., k*1., k*0.1))
+
+    # Camera definitions
+    cam = 4.*e3 - 20.*e2
+    lookat = eo
+    upcam = up(cam)
+    f = 1.
+    xmax = 1.0
+    ymax = xmax*(h*1.0/w)
+
+    # No need to define the up vector since we're assuming it's e3 pre-transform.
+
+    start_time = time.time()
+
+    # Get all of the required initial transformations
+    optic_axis = new_line(cam, lookat)
+    original = new_line(eo, e2)
+    MVR = generate_translation_rotor(cam)*rotor_between_lines(original, optic_axis)
+    dTx = MVR*generate_translation_rotor((2*xmax/(w-1))*e1)*~MVR
+    dTy = MVR*generate_translation_rotor(-(2*ymax/(h-1))*e3)*~MVR
+
+    Ptl = f*1.0*e2 - e1*xmax + e3*ymax
+
+    drawScene()
+
+    im1 = Image.fromarray(render().astype('uint8'), 'RGB')
+    im1.save('fig.png')
+
+    print("\n\n")
+    print("--- %s seconds ---" % (time.time() - start_time))
 
 
-print("\n\n")
-print("--- %s seconds ---" % (time.time() - start_time))
+# # Shading options
+# a1 = 0.02
+# a2 = 0.0
+# a3 = 0.002
+# w = 800
+# h = 600
+# options = {'ambient': True, 'specular': True, 'diffuse': True}
+# ambient = 0.3
+# k = 1.  # Brightness factor
+# max_depth = 2
+# background = np.zeros(3)
+#
+# # Add objects to the scene:
+# scene = []
+# scene.append(Sphere(-2.*e1 - 7.2*e2 + 4.*e3, 4., np.array([1., 0., 0.]), k*1., 100., k*1., k*1., k*0.1))
+# scene.append(Sphere(6.*e1 - 2.0*e2 + 4.*e3, 4., np.array([0., 0., 1.]), k*1., 100., k*1., k*1., k*0.1))
+# scene.append(Plane(20.*e2+ e1, 20.*e2, 21.*e2, np.array([0.8, 0.8, 0.8]), k*1., 100., k*1., k*1., k*0.1))
+#
+# # Camera definitions
+# cam = 4.*e3 - 20.*e2
+# lookat = eo
+# upcam = up(cam)
+# f = 1.
+# xmax = 1.0
+# ymax = xmax*(h*1.0/w)
+#
+# # No need to define the up vector since we're assuming it's e3 pre-transform.
+#
+# start_time = time.time()
+#
+# # Get all of the required initial transformations
+# optic_axis = new_line(cam, lookat)
+# original = new_line(eo, e2)
+# MVR = generate_translation_rotor(cam)*rotor_between_lines(original, optic_axis)
+# dTx = MVR*generate_translation_rotor((2*xmax/(w-1))*e1)*~MVR
+# dTy = MVR*generate_translation_rotor(-(2*ymax/(h-1))*e3)*~MVR
+#
+# Ptl = f*1.0*e2 - e1*xmax + e3*ymax
+#
+# images = []
+# dR = generate_rotation_rotor(np.pi/19, e3, e1)
+# L = -20.*e1 + 4.*e2
+# for i in range(0,20):
+#     lights = []
+#     lights.append(Light(L, np.ones(3)))
+#     tmp = Image.fromarray(render().astype('uint8'), 'RGB')
+#     tmp.save('./ims/frame{:02d}.gif'.format(i))
+#     if i == 2:
+#         tmp.save('frame.png')
+#     # images.append(Image.fromarray(render().astype('uint8'), 'RGB'))
+#
+#     L = apply_rotor(L, dR)
+#
+# for i in range(0,20):
+#     images.append(Image.open('./ims/frame{:02d}.gif'.format(i)))
+#
+# images[0].save('animation.gif',
+#                save_all=True,
+#                append_images=images[1:],
+#                duration=100,
+#                loop=0)
+#
+#
+# drawScene(Ptl, MVR, cam, lookat, scene, lights)
+#
+# print("\n\n")
+# print("--- %s seconds ---" % (time.time() - start_time))
