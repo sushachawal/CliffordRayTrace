@@ -405,38 +405,39 @@ def RMVR(mv):
 
 
 @numba.njit
-def my_clip(val, min, max):
+def my_clip(val, min_val, max_val):
     out = np.empty_like(val)
     for i in range(len(val)):
-        if val[i] < min:
-            out[i] = min
-        elif val[i] > max:
-            out[i] = max
+        if val[i] < min_val:
+            out[i] = min_val
+        elif val[i] > max_val:
+            out[i] = max_val
         else:
             out[i] = val[i]
     return out
 
-
-# Can't parallelise yet because applying translation rotors is incremental!
-
-@numba.njit(parallel = True)
-def render():
-    img = np.zeros((h, w, 3))
+@numba.njit()
+def generate_ray_array():
     initial = val_apply_rotor(val_up(Ptl_val), MVR_val)
+    point_array = np.zeros((32,w,h))
+    line_array = np.zeros((32,w,h))
+    point_array[:,0,0] = initial
+    for i in range(1,w):
+        point_array[:,i,0] = val_apply_rotor(point_array[:,i-1,0], dTx_val)
+        for j in range(1,h):
+            point_array[:,i,j] = val_apply_rotor(point_array[:,i,j-1], dTy_val)
+            line_array[:,i,j] = val_normalised(omt_func(upcam_val,omt_func(point_array[:,i,j], ninf_val)))
+    return line_array
+
+@numba.njit(parallel = True, nogil=True)
+def render(line_array):
+    img = np.zeros((h, w, 3))
     for i in prange(w):
-        if i % 10 == 0:
-            print(i/w * 100, "%")
-        point = initial
-        line = val_normalised(omt_func(upcam_val,omt_func(initial, ninf_val)))
         for j in prange(h):
+            line = line_array[:,i,j]
             value = trace_ray(line, scene_type_val, scene_val, upcam_val, 0)
             value = my_clip(value, 0., 1.)
             img[j, i, :] = value * 255.
-            point = val_apply_rotor(point, dTy_val)
-            line = val_normalised(omt_func(upcam_val,omt_func(point, ninf_val)))
-
-        initial = val_apply_rotor(initial, dTx_val)
-
     return img
 
 
@@ -487,9 +488,7 @@ if __name__ == "__main__":
 
     # No need to define the up vector since we're assuming it's e3 pre-transform.
 
-    print("Start Render")
 
-    start_time = time.time()
 
     # Get all of the required initial transformations
     optic_axis = new_line(cam, lookat)
@@ -505,8 +504,16 @@ if __name__ == "__main__":
     Ptl_val = Ptl.value
 
     #drawScene()
+    print("Start Ray generation")
+    start_time = time.time()
+    ray_array = generate_ray_array()
+    print("--- %s seconds ---" % (time.time() - start_time))
 
-    im1 = Image.fromarray(render().astype('uint8'), 'RGB')
+    print("Start Render")
+
+    start_time = time.time()
+
+    im1 = Image.fromarray(render(ray_array).astype('uint8'), 'RGB')
     im1.save('fig.png')
 
     print("\n\n")
