@@ -1,4 +1,4 @@
-# CGARayCast
+# Clifftrace
 
 ## Overview:
 This project uses [Conformal Geometric Algebra (CGA)][cga] to build a ray tracing engine with the [clifford][clifford] library with the following functionality:
