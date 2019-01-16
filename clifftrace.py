@@ -281,8 +281,8 @@ if __name__ == "__main__":
     a1 = 0.02
     a2 = 0.0
     a3 = 0.002
-    w = 1600
-    h = 1200
+    w = 800
+    h = 600
     options = {'ambient': True, 'specular': True, 'diffuse': True}
     ambient = 0.3
     k = 1.  # Magic constant to scale everything by the same amount!
@@ -291,13 +291,16 @@ if __name__ == "__main__":
 
     # Add objects to the scene:
     scene = []
-    scene.append(Sphere(-2.*e1 - 7.2*e2 + 4.*e3, 4., np.array([1., 0., 0.]), k*1., 100., k*1., k*1., k*0.1))
-    scene.append(Sphere(6.*e1 - 2.0*e2 + 4.*e3, 4., np.array([0.2, 0.2, 0.2]), k*1., 100., k*0.2, k*1.0, k*1.))
-    scene.append(Plane(20.*e2+ e1, 20.*e2, 21.*e2, np.array([0.8, 0.8, 0.8]), k*1., 100., k*1., k*1., k*0.1))
+    scene.append(
+        Sphere(-2. * e1 - 7.2 * e2 + 4. * e3, 4., np.array([1., 0., 0.]), k * 1., 100., k * 1., k * 1., k * 0.1))
+    scene.append(
+        Sphere(6. * e1 - 2.0 * e2 + 4. * e3, 4., np.array([0.2, 0.2, 0.2]), k * 1., 100., k * 0.2, k * 1.0, k * 1.))
+    scene.append(
+        Plane(20. * e2 + e1, 20. * e2, 21. * e2, np.array([0.8, 0.8, 0.8]), k * 1., 100., k * 1., k * 1., k * 0.1))
 
     # Camera definitions
-    cam = 4.*e3 - 20.*e2
-    lookat = eo
+    cam = 10.*e3 - 20.*e2 + 1.*e1
+    lookat = 1.*e1 +2.*e2
     upcam = up(cam)
     f = 1.
     xmax = 1.0
@@ -305,24 +308,24 @@ if __name__ == "__main__":
 
     # No need to define the up vector since we're assuming it's e3 pre-transform.
 
-    start_time = time.time()
+    # start_time = time.time()
 
     # Get all of the required initial transformations
     optic_axis = new_line(cam, lookat)
     original = new_line(eo, e2)
-    MVR = generate_translation_rotor(cam)*rotor_between_lines(original, optic_axis)
+    MVR = generate_translation_rotor(cam-lookat)*rotor_between_lines(original, optic_axis)
     dTx = MVR*generate_translation_rotor((2*xmax/(w-1))*e1)*~MVR
     dTy = MVR*generate_translation_rotor(-(2*ymax/(h-1))*e3)*~MVR
 
     Ptl = f*1.0*e2 - e1*xmax + e3*ymax
 
     drawScene()
+    #
+    # im1 = Image.fromarray(render().astype('uint8'), 'RGB')
+    # im1.save('fig.png')
 
-    im1 = Image.fromarray(render().astype('uint8'), 'RGB')
-    im1.save('fig.png')
-
-    print("\n\n")
-    print("--- %s seconds ---" % (time.time() - start_time))
+    # print("\n\n")
+    # print("--- %s seconds ---" % (time.time() - start_time))
 
 
 # # Shading options
@@ -365,18 +368,18 @@ if __name__ == "__main__":
 # Ptl = f*1.0*e2 - e1*xmax + e3*ymax
 #
 # images = []
-# dR = generate_rotation_rotor(np.pi/19, e3, e1)
+# dR = generate_rotation_rotor(np.pi/4, e3, e1)
 # L = -20.*e1 + 4.*e2
-# for i in range(0,20):
+# for i in range(1,5):
 #     lights = []
 #     lights.append(Light(L, np.ones(3)))
 #     tmp = Image.fromarray(render().astype('uint8'), 'RGB')
-#     tmp.save('./ims/frame{:02d}.gif'.format(i))
-#     if i == 2:
-#         tmp.save('frame.png')
-#     # images.append(Image.fromarray(render().astype('uint8'), 'RGB'))
-#
-#     L = apply_rotor(L, dR)
+#     tmp.save('./ims/frame{:02d}.png'.format(i))
+    # if i == 2:
+    #     tmp.save('frame.png')
+    # images.append(Image.fromarray(render().astype('uint8'), 'RGB'))
+
+    # L = apply_rotor(L, dR)
 #
 # for i in range(0,20):
 #     images.append(Image.open('./ims/frame{:02d}.gif'.format(i)))

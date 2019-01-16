@@ -443,8 +443,8 @@ if __name__ == "__main__":
     a1 = 0.02
     a2 = 0.0
     a3 = 0.002
-    w = 1600
-    h = 1200
+    w = 400
+    h = 300
     options = {'ambient': True, 'specular': True, 'diffuse': True}
     options_val = np.array([True, True , True])
     ambient = 0.3
@@ -481,7 +481,7 @@ if __name__ == "__main__":
     # Get all of the required initial transformations
     optic_axis = new_line(cam, lookat)
     original = new_line(eo, e2)
-    MVR = generate_translation_rotor(cam)*rotor_between_lines(original, optic_axis)
+    MVR = generate_translation_rotor(cam-lookat)*rotor_between_lines(original, optic_axis)
     MVR_val = MVR.value
     dTx = MVR*generate_translation_rotor((2*xmax/(w-1))*e1)*~MVR
     dTx_val = dTx.value
@@ -503,7 +503,5 @@ if __name__ == "__main__":
     start_time = time.time()
 
     im1 = Image.fromarray(render(ray_array).astype('uint8'), 'RGB')
-    im1.save('fig.png')
-
-    print("\n\n")
+    im1.save('fig1.png')
     print("--- %s seconds ---" % (time.time() - start_time))
