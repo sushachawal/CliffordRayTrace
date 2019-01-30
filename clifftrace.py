@@ -44,6 +44,20 @@ class Plane:
     def getColour(self):
         return "rgb(%d, %d, %d)" % (int(self.colour[0]*255), int(self.colour[1]*255), int(self.colour[2]*255))
 
+class Circle:
+    def __init__(self, p1, p2, p3, colour, specular, spec_k, amb, diffuse, reflection):
+        self.object = -new_circle(p1, p2, p3)
+        self.colour = colour
+        self.specular = specular
+        self.spec_k = spec_k
+        self.ambient = amb
+        self.diffuse = diffuse
+        self.reflection = reflection
+        self.type = "Circle"
+
+    def getColour(self):
+        return "rgb(%d, %d, %d)" % (int(self.colour[0]*255), int(self.colour[1]*255), int(self.colour[2]*255))
+
 
 class Light:
     def __init__(self, position, colour):
@@ -91,8 +105,9 @@ def drawScene():
     for objects in scene:
         if objects.type == "Sphere":
             sc.add_sphere(objects.object, objects.getColour())
-        else:
+        elif objects.type == "Plane":
             sc.add_plane(objects.object, objects.getColour())
+        else: sc.add_circle(objects.object, objects.getColour())
     for light in lights:
         l = light.position
         sc.add_euc_point(up(l), yellow)
@@ -104,6 +119,8 @@ def drawScene():
 def new_sphere(p1, p2, p3, p4):
     return unsign_sphere(normalised(up(p1) ^ up(p2) ^ up(p3) ^ up(p4)))
 
+def new_circle(p1, p2, p3):
+    return normalised(up(p1) ^ up(p2) ^ up(p3))
 
 def new_plane(p1, p2, p3):
     return normalised(up(p1) ^ up(p2) ^ up(p3) ^ einf)
@@ -191,6 +208,14 @@ def intersects(ray, scene, origin):
             pX = val_pointofXSphere(ray.value, obj.object.value, origin.value)
         if obj.type == "Plane":
             pX = val_pointofXplane(ray.value, obj.object.value, origin.value)
+        if obj.type == "Circle":
+            m = meet_val(ray.value, obj.object.value)
+            if (np.abs(m) <= 0.000001).all():
+                pX = np.array([-1.])
+            elif gmt_func(m , m)[0] <= 0.00001:
+                pX = val_pointofXplane(ray.value, omt_func(obj.object.value, einf.value), origin.value)
+            else:
+                pX = np.array([-1.])
 
         if pX[0] == -1.: continue
         if idx == 0:
@@ -222,14 +247,20 @@ def trace_ray(ray, scene, origin, depth):
 
         if obj.type == "Sphere":
             reflected = -1.*reflect_in_sphere(ray, obj.object, pX)
-        else:
+        elif obj.type == "Plane":
             reflected = layout.MultiVector(value=(gmt_func(gmt_func(obj.object.value, ray.value), obj.object.value)))
+        else:
+            reflected = layout.MultiVector(value=(gmt_func(gmt_func(val_normalised(
+                omt_func(obj.object.value, einf.value)), ray.value), val_normalised(omt_func(obj.object.value,einf.value)))))
 
         norm = normalised(reflected - ray)
 
         fatt = getfattconf(d, a1, a2, a3)
 
         if options['specular']:
+            # if obj.type == "Circle":
+            #     print(Satt * fatt * obj.specular * \
+            #              max(cosangle_between_lines(norm, normalised(toL-ray)), 0) ** obj.spec_k * light.colour)
             pixel_col += Satt * fatt * obj.specular * \
                          max(cosangle_between_lines(norm, normalised(toL-ray)), 0) ** obj.spec_k * light.colour
 
@@ -238,7 +269,7 @@ def trace_ray(ray, scene, origin, depth):
 
     if depth >= max_depth:
         return pixel_col
-    pixel_col += obj.reflection * trace_ray(reflected, scene, pX, depth + 1) / ((depth + 1) ** 2)
+    pixel_col += obj.reflection * trace_ray(reflected, scene, pX, depth + 1) #/ ((depth + 1) ** 2)
     return pixel_col
 
 
@@ -270,10 +301,10 @@ def render():
 if __name__ == "__main__":
     # Light position and color.
     lights = []
-    L = -20.*e1 + 60.*e3 + 4.*e2
+    L = -20.*e1 + 60.*e3 -3.*e2
     colour_light = np.ones(3)
     lights.append(Light(L, colour_light))
-    L = 20.*e1 + 60.*e3 + 4.*e2
+    L = 20.*e1 + 60.*e3 -3.*e2
     lights.append(Light(L, colour_light))
 
 
@@ -281,8 +312,8 @@ if __name__ == "__main__":
     a1 = 0.02
     a2 = 0.0
     a3 = 0.002
-    w = 800
-    h = 600
+    w = 1600
+    h = 1200
     options = {'ambient': True, 'specular': True, 'diffuse': True}
     ambient = 0.3
     k = 1.  # Magic constant to scale everything by the same amount!
@@ -291,16 +322,41 @@ if __name__ == "__main__":
 
     # Add objects to the scene:
     scene = []
-    scene.append(
-        Sphere(-2. * e1 - 7.2 * e2 + 4. * e3, 4., np.array([1., 0., 0.]), k * 1., 100., k * 1., k * 1., k * 0.1))
-    scene.append(
-        Sphere(6. * e1 - 2.0 * e2 + 4. * e3, 4., np.array([0.2, 0.2, 0.2]), k * 1., 100., k * 0.2, k * 1.0, k * 1.))
+    # scene.append(
+    #     Sphere(-2. * e1 - 7.2 * e2 + 4. * e3, 4., np.array([1., 0., 0.]), k * 1., 100., k * 1., k * 1., k * 0.))
+    # for i in range(-1, 3):
+    #     scene.append(
+    #         Sphere(i*e1 - 7.2 * e2 + 4. * e3, 4., np.array([1., 0., 0.]), k * 1., 100., k * 1., k * 1.0, k * 0.0))
     scene.append(
         Plane(20. * e2 + e1, 20. * e2, 21. * e2, np.array([0.8, 0.8, 0.8]), k * 1., 100., k * 1., k * 1., k * 0.1))
 
+    scene.append(
+        Circle(2*e3-10.*e2, 2*e3-5*e2, 2*e3-10*e1-10*e2, np.array([1., 0., 0.]), k * 20., 100., k * 0.01, k * 1., k * 0.))
+
+    points = [2*e3-10.*e2, 2*e3-5*e2, 2*e3-10*e1-10*e2]
+    rotate = generate_rotation_rotor(np.pi/6, e2, e3)
+    rotate1 = generate_rotation_rotor(np.pi/2.7, e1, e2)
+    new_points = [apply_rotor(p + 10*e2 + 15*e1, rotate) for p in points]
+    scene.append(
+        Circle(new_points[0], new_points[1], new_points[2], np.array([0.2, 0.2, 0.2]), k * 1., 100., k * 0.2, k * 0.5, k * 2.)
+    )
+
+    scene.append(
+        Sphere(1*e2 + 8*e3 +11*e1, 2, np.array([0., 0., 1.]), k * 1., 100., k * 0.01, k * 1., k * 0.)
+    )
+
+    new_points = [apply_rotor(apply_rotor(p+ 3*e1 + 15*e2 +5*e3, rotate1), rotate) for p in points]
+
+    scene.append(
+        Circle(new_points[0], new_points[1], new_points[2], np.array([0., 1., 0.]), k * 1., 100., k * 0.01, k * 0.5, k * 0.))
+
+    scene.append(
+        Sphere(7*e3 + 25*e2 + 5*e1, 7., np.array([0.2, 0.2, 0.2]), k * 1., 100., k * 0.2, k * 1.0, k * 1.)
+    )
+
     # Camera definitions
     cam = 10.*e3 - 20.*e2 + 1.*e1
-    lookat = 1.*e1 +2.*e2
+    lookat = e1
     upcam = up(cam)
     f = 1.
     xmax = 1.0
@@ -308,7 +364,7 @@ if __name__ == "__main__":
 
     # No need to define the up vector since we're assuming it's e3 pre-transform.
 
-    # start_time = time.time()
+    start_time = time.time()
 
     # Get all of the required initial transformations
     optic_axis = new_line(cam, lookat)
@@ -320,12 +376,12 @@ if __name__ == "__main__":
     Ptl = f*1.0*e2 - e1*xmax + e3*ymax
 
     drawScene()
-    #
-    # im1 = Image.fromarray(render().astype('uint8'), 'RGB')
-    # im1.save('fig.png')
 
-    # print("\n\n")
-    # print("--- %s seconds ---" % (time.time() - start_time))
+    im1 = Image.fromarray(render().astype('uint8'), 'RGB')
+    im1.save('fig1.png')
+
+    print("\n\n")
+    print("--- %s seconds ---" % (time.time() - start_time))
 
 
 # # Shading options
