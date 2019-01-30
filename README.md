@@ -50,6 +50,7 @@ The output draws:
 
 ## Planned Future Work:
 
+* Move interactive visualisation over to [pyganja][pyganja]
 * ~~Acceleration with [Numba][Numba] starting with the `PointsFromPP` function.~~
 * A front-end to interact with the view as in GAOnline. (With Tkinter? PyGame?)
 * ~~Ability to draw planes.~~
@@ -80,3 +81,4 @@ The output draws:
 [GAforCompSci]: http://www.geometricalgebra.net/
 [BSP]: https://en.wikipedia.org/wiki/Binary_space_partitioning
 [Pillow]: https://github.com/python-pillow/Pillow
+[pyganja]: https://github.com/pygae/pyganja
