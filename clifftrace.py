@@ -58,6 +58,20 @@ class Circle:
     def getColour(self):
         return "rgb(%d, %d, %d)" % (int(self.colour[0]*255), int(self.colour[1]*255), int(self.colour[2]*255))
 
+class Interp_Surface:
+    def __init__(self, C1, C2, colour, specular, spec_k, amb, diffuse, reflection):
+        self.first = C1
+        self.second = C2
+        self.colour = colour
+        self.specular = specular
+        self.spec_k = spec_k
+        self.ambient = amb
+        self.diffuse = diffuse
+        self.reflection = reflection
+        self.type = "Surface"
+
+    def getColour(self):
+        return "rgb(%d, %d, %d)" % (int(self.colour[0]*255), int(self.colour[1]*255), int(self.colour[2]*255))
 
 class Light:
     def __init__(self, position, colour):
@@ -107,7 +121,15 @@ def drawScene():
             sc.add_sphere(objects.object, objects.getColour())
         elif objects.type == "Plane":
             sc.add_plane(objects.object, objects.getColour())
-        else: sc.add_circle(objects.object, objects.getColour())
+        elif objects.type == "Circle":
+            sc.add_circle(objects.object, objects.getColour())
+        else:
+            col = objects.getColour()
+            sc.add_circle(objects.first, col)
+            sc.add_circle(objects.second, col)
+            for circles in [interp_objects_root(objects.first, objects.second, alpha/100) for alpha in range(1,100,20)]:
+                sc.add_circle(circles, col)
+
     for light in lights:
         l = light.position
         sc.add_euc_point(up(l), yellow)
@@ -199,37 +221,101 @@ def reflect_in_sphere(ray, sphere, pX):
         return normalised((pX|(sphere*ray*sphere))^einf)
 
 
+def pointofXcircle(ray_val, circle_val, origin_val):
+    m = meet_val(ray_val, circle_val)
+    if (np.abs(m) <= 0.000001).all():
+        return np.array([-1.])
+    elif gmt_func(m, m)[0] <= 0.00001:
+        return val_pointofXplane(ray_val, omt_func(circle_val, einf.value), origin_val)
+    else:
+        return np.array([-1.])
+
+
+def pointofXsurface(L, C1, C2, origin):
+    # Check if the ray hits the endpoints
+
+    # Check each
+
+    # Check both
+
+    # Calculate the quadratic
+    poly_val_to_fit = [(meet(C1, L) ** 2)[0], (meet(0.5 * C2 + 0.5 * C1, L) ** 2)[0], (meet(C2, L) ** 2)[0]]
+
+    # Find an equivalent quadratic
+    poly = np.polyfit([0, 0.5, 1], poly_val_to_fit, 2)
+
+    # Calculate intersections
+    zeros_crossing = np.roots(poly)
+
+    # Check if it misses entirely
+    if np.iscomplex(zeros_crossing).any():
+        return np.array([-1.]), None
+
+    # Check if it is in plane
+    if np.abs(zeros_crossing[0] - zeros_crossing[1]) < 0.00001:
+        # Intersect as it it were a sphere
+        C = interp_objects_root(C1, C2, zeros_crossing[0])
+        S = (C * (C ^ einf).normal() * I5).normal()
+        return val_pointofXSphere(L.value, unsign_sphere(S).value, origin.value), zeros_crossing[0]
+
+    # Get intersection points
+    p1 = meet(interp_objects_root(C1, C2, zeros_crossing[0]), L)
+    p2 = meet(interp_objects_root(C1, C2, zeros_crossing[1]), L)
+
+    p1_val = val_up(val_down(p1.value))
+    p2_val = val_up(val_down(p2.value))
+
+    # Assume for now that the points are not inside the object.
+    new_line1 = omt_func(origin.value, omt_func(p1_val, ninf_val))
+    new_line2 = omt_func(origin.value, omt_func(p2_val, ninf_val))
+    if abs((gmt_func(new_line1, new_line1))[0]) < 0.00001 or abs((gmt_func(new_line2, new_line2))[0]) < 0.00001:
+        return np.array([-1.]), None
+
+    if imt_func(L.value, val_normalised(new_line1))[0] > 0:
+        if imt_func(p1_val, origin.value)[0] > imt_func(p2_val, origin.value)[0]:
+            return p1_val, zeros_crossing[0]
+        else:
+            return p2_val, zeros_crossing[1]
+
+    return np.array([-1.]), None
+
+
+def reflect_in_surface(ray, object, pX, alpha):
+    c_alpha = interp_objects_root(object.first, object.second, alpha)
+    centre = up(get_circle_in_euc(c_alpha)[0])
+    normal = centre ^ pX ^ einf
+    return normalised(normal + ray)
+
+
 def intersects(ray, scene, origin):
     dist = -np.finfo(float).max
     index = None
     pXfin = None
+    alpha = None
+    alphaFin = None
     for idx, obj in enumerate(scene):
         if obj.type == "Sphere":
             pX = val_pointofXSphere(ray.value, obj.object.value, origin.value)
         if obj.type == "Plane":
             pX = val_pointofXplane(ray.value, obj.object.value, origin.value)
         if obj.type == "Circle":
-            m = meet_val(ray.value, obj.object.value)
-            if (np.abs(m) <= 0.000001).all():
-                pX = np.array([-1.])
-            elif gmt_func(m , m)[0] <= 0.00001:
-                pX = val_pointofXplane(ray.value, omt_func(obj.object.value, einf.value), origin.value)
-            else:
-                pX = np.array([-1.])
+            pX = pointofXcircle(ray.value, obj.object.value, origin.value)
+        if obj.type == "Surface":
+            pX, alpha = pointofXsurface(ray, obj.first, obj.second, origin)
 
         if pX[0] == -1.: continue
         if idx == 0:
-            dist, index, pXfin = imt_func(pX, origin.value)[0] , idx , layout.MultiVector(value=pX)
+            dist, index, pXfin, alphaFin = imt_func(pX, origin.value)[0] , idx , layout.MultiVector(value=pX), alpha
             continue
         t = imt_func(pX, origin.value)[0]
         if(t > dist):
-            dist, index, pXfin = t, idx, layout.MultiVector(value=pX)
-    return pXfin, index
+            dist, index, pXfin, alphaFin = t, idx, layout.MultiVector(value=pX), alpha
+    return pXfin, index, alphaFin
 
 
 def trace_ray(ray, scene, origin, depth):
     pixel_col = np.zeros(3)
-    pX, index = intersects(ray, scene, origin)
+    pX, index, alpha = intersects(ray, scene, origin)
     if index is None:
         return background
     obj = scene[index]
@@ -249,9 +335,11 @@ def trace_ray(ray, scene, origin, depth):
             reflected = -1.*reflect_in_sphere(ray, obj.object, pX)
         elif obj.type == "Plane":
             reflected = layout.MultiVector(value=(gmt_func(gmt_func(obj.object.value, ray.value), obj.object.value)))
-        else:
+        elif obj.type == "Circle":
             reflected = layout.MultiVector(value=(gmt_func(gmt_func(val_normalised(
                 omt_func(obj.object.value, einf.value)), ray.value), val_normalised(omt_func(obj.object.value,einf.value)))))
+        else:
+            reflected = reflect_in_surface(ray, obj, pX, alpha)
 
         norm = normalised(reflected - ray)
 
@@ -301,10 +389,10 @@ def render():
 if __name__ == "__main__":
     # Light position and color.
     lights = []
-    L = -20.*e1 + 60.*e3 -3.*e2
+    L = -20.*e1 + 5.*e3 -10.*e2
     colour_light = np.ones(3)
     lights.append(Light(L, colour_light))
-    L = 20.*e1 + 60.*e3 -3.*e2
+    L = 20.*e1 + 5.*e3 -10.*e2
     lights.append(Light(L, colour_light))
 
 
@@ -312,8 +400,8 @@ if __name__ == "__main__":
     a1 = 0.02
     a2 = 0.0
     a3 = 0.002
-    w = 1600
-    h = 1200
+    w = 400
+    h = 300
     options = {'ambient': True, 'specular': True, 'diffuse': True}
     ambient = 0.3
     k = 1.  # Magic constant to scale everything by the same amount!
@@ -327,36 +415,45 @@ if __name__ == "__main__":
     # for i in range(-1, 3):
     #     scene.append(
     #         Sphere(i*e1 - 7.2 * e2 + 4. * e3, 4., np.array([1., 0., 0.]), k * 1., 100., k * 1., k * 1.0, k * 0.0))
-    scene.append(
-        Plane(20. * e2 + e1, 20. * e2, 21. * e2, np.array([0.8, 0.8, 0.8]), k * 1., 100., k * 1., k * 1., k * 0.1))
+    # scene.append(
+    #     Plane(20. * e2 + e1, 20. * e2, 21. * e2, np.array([0.8, 0.8, 0.8]), k * 1., 100., k * 1., k * 1., k * 0.1))
+    #
+    # scene.append(
+    #     Circle(2*e3-10.*e2, 2*e3-5*e2, 2*e3-10*e1-10*e2, np.array([1., 0., 0.]), k * 20., 100., k * 0.01, k * 1., k * 0.))
+    #
+    # points = [2*e3-10.*e2, 2*e3-5*e2, 2*e3-10*e1-10*e2]
+    # rotate = generate_rotation_rotor(np.pi/6, e2, e3)
+    # rotate1 = generate_rotation_rotor(np.pi/2.7, e1, e2)
+    # new_points = [apply_rotor(p + 10*e2 + 15*e1, rotate) for p in points]
+    # scene.append(
+    #     Circle(new_points[0], new_points[1], new_points[2], np.array([0.2, 0.2, 0.2]), k * 1., 100., k * 0.2, k * 0.5, k * 2.)
+    # )
+    #
+    # scene.append(
+    #     Sphere(1*e2 + 8*e3 +11*e1, 2, np.array([0., 0., 1.]), k * 1., 100., k * 0.01, k * 1., k * 0.)
+    # )
+    #
+    # new_points = [apply_rotor(apply_rotor(p+ 3*e1 + 15*e2 +5*e3, rotate1), rotate) for p in points]
+    #
+    # scene.append(
+    #     Circle(new_points[0], new_points[1], new_points[2], np.array([0., 1., 0.]), k * 1., 100., k * 0.01, k * 0.5, k * 0.))
+    #
+    # scene.append(
+    #     Sphere(7*e3 + 25*e2 + 5*e1, 7., np.array([0.2, 0.2, 0.2]), k * 1., 100., k * 0.2, k * 1.0, k * 1.)
+    # )
+
+    C1 = normalised(up(-e3) ^ up(e3) ^ up(e2))
+
+    C2 = normalised(up(5*e1-e3 + 3*e3) ^ up(5*e1+e3+ 3*e3) ^ up(5*e1+e2+ 3*e3))
 
     scene.append(
-        Circle(2*e3-10.*e2, 2*e3-5*e2, 2*e3-10*e1-10*e2, np.array([1., 0., 0.]), k * 20., 100., k * 0.01, k * 1., k * 0.))
-
-    points = [2*e3-10.*e2, 2*e3-5*e2, 2*e3-10*e1-10*e2]
-    rotate = generate_rotation_rotor(np.pi/6, e2, e3)
-    rotate1 = generate_rotation_rotor(np.pi/2.7, e1, e2)
-    new_points = [apply_rotor(p + 10*e2 + 15*e1, rotate) for p in points]
-    scene.append(
-        Circle(new_points[0], new_points[1], new_points[2], np.array([0.2, 0.2, 0.2]), k * 1., 100., k * 0.2, k * 0.5, k * 2.)
+        Interp_Surface(C1, C2, np.array([0., 0., 1.]), k * 1., 100., k * 1., k * 1., k * 0.)
     )
 
-    scene.append(
-        Sphere(1*e2 + 8*e3 +11*e1, 2, np.array([0., 0., 1.]), k * 1., 100., k * 0.01, k * 1., k * 0.)
-    )
-
-    new_points = [apply_rotor(apply_rotor(p+ 3*e1 + 15*e2 +5*e3, rotate1), rotate) for p in points]
-
-    scene.append(
-        Circle(new_points[0], new_points[1], new_points[2], np.array([0., 1., 0.]), k * 1., 100., k * 0.01, k * 0.5, k * 0.))
-
-    scene.append(
-        Sphere(7*e3 + 25*e2 + 5*e1, 7., np.array([0.2, 0.2, 0.2]), k * 1., 100., k * 0.2, k * 1.0, k * 1.)
-    )
 
     # Camera definitions
-    cam = 10.*e3 - 20.*e2 + 1.*e1
-    lookat = e1
+    cam = 3.*e3 - 10.*e2 + 1.*e1
+    lookat = 3.*e3 + e1
     upcam = up(cam)
     f = 1.
     xmax = 1.0
@@ -378,7 +475,7 @@ if __name__ == "__main__":
     drawScene()
 
     im1 = Image.fromarray(render().astype('uint8'), 'RGB')
-    im1.save('fig1.png')
+    im1.save('figtest.png')
 
     print("\n\n")
     print("--- %s seconds ---" % (time.time() - start_time))
