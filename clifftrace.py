@@ -3,6 +3,7 @@ from clifford.tools.g3c.GAOnline import *
 import numpy as np
 from PIL import Image
 import time
+from scipy.optimize import fsolve
 
 red = 'rgb(255, 0 , 0)'
 blue = 'rgb(0, 0, 255)'
@@ -88,7 +89,7 @@ def drawScene():
     sc = GAScene()
 
     #Draw Camera transformation
-    sc.add_line(original, red)
+    # sc.add_line(original, red)
     sc.add_line((MVR*original*~MVR).normal(), red)
     sc.add_euc_point(up(cam), blue)
     sc.add_euc_point(up(lookat), blue)
@@ -237,18 +238,19 @@ def pointofXsurface(L, C1, C2, origin):
     # Check each
 
     # Check both
-
-    # Calculate the quadratic
-    poly_val_to_fit = [(meet(C1, L) ** 2)[0], (meet(0.5 * C2 + 0.5 * C1, L) ** 2)[0], (meet(C2, L) ** 2)[0]]
-
-    # Find an equivalent quadratic
-    poly = np.polyfit([0, 0.5, 1], poly_val_to_fit, 2)
-
-    # Calculate intersections
-    zeros_crossing = np.roots(poly)
+    print("Checking point of X surface!")
+    def rootfunc(alpha):
+        return [(meet(interp_objects_root(C1,C2,alpha[0]), L) ** 2)[0], (meet(interp_objects_root(C1,C2,alpha[1]), L) ** 2)[0]]
+    sol = fsolve(rootfunc, np.array([0,1]),full_output=True)
+    zeros_crossing = sol[0]
+    success = sol[2]
 
     # Check if it misses entirely
-    if np.iscomplex(zeros_crossing).any():
+    if success != 1:
+        return np.array([-1.]), None
+    if zeros_crossing[0] < 0 or zeros_crossing[0] > 1:
+        return np.array([-1.]), None
+    if zeros_crossing[1] < 0 or zeros_crossing[1] > 1:
         return np.array([-1.]), None
 
     # Check if it is in plane
@@ -262,12 +264,12 @@ def pointofXsurface(L, C1, C2, origin):
     p1 = meet(interp_objects_root(C1, C2, zeros_crossing[0]), L)
     p2 = meet(interp_objects_root(C1, C2, zeros_crossing[1]), L)
 
-    p1_val = val_up(val_down(p1.value))
-    p2_val = val_up(val_down(p2.value))
+    p1_val = normalise_n_minus_1((p1*einf*p1)(1)).value
+    p2_val = normalise_n_minus_1((p2*einf*p2)(1)).value
 
     # Assume for now that the points are not inside the object.
-    new_line1 = omt_func(origin.value, omt_func(p1_val, ninf_val))
-    new_line2 = omt_func(origin.value, omt_func(p2_val, ninf_val))
+    new_line1 = val_normalised( omt_func(origin.value, omt_func(p1_val, ninf_val)) )
+    new_line2 = val_normalised( omt_func(origin.value, omt_func(p2_val, ninf_val)) )
     if abs((gmt_func(new_line1, new_line1))[0]) < 0.00001 or abs((gmt_func(new_line2, new_line2))[0]) < 0.00001:
         return np.array([-1.]), None
 
@@ -280,10 +282,41 @@ def pointofXsurface(L, C1, C2, origin):
     return np.array([-1.]), None
 
 
+def project_points_to_circle(point_list, circle):
+    """
+    Takes a load of point and projects them onto a circle
+    """
+    circle_plane = (circle^einf).normal()
+    planar_points = project_points_to_plane(point_list,circle_plane)
+    circle_points = project_points_to_sphere(planar_points, -circle*circle_plane*I5)
+    return circle_points
+
+def get_normal(C1,C2,alpha,P):
+    Aplus = interp_objects_root(C1,C2,alpha+0.001)
+    Aminus = interp_objects_root(C1,C2,alpha-0.001)
+    A = interp_objects_root(C1,C2,alpha)
+    PA = project_points_to_circle([P], Aplus)[0]
+    PB = project_points_to_circle([P], Aminus)[0]
+    L1 = (PA^PB^einf).normal()
+    L2 = ((A*einf*A)^P^einf).normal()
+    L3 = (L1*L2*L1).normal()
+    # print("")
+    # print(Aplus)
+    # print(Aminus)
+    # print(PA)
+    # print(PB)
+    # print(L1)
+    # print(L2)
+    # print(L3)
+    # print("\n")
+    L4 = average_objects([L2,-L3])
+    #draw([L4,C1,C2,Aplus,Aminus,PA,PB],scale=0.5)
+    return L4
+
+
 def reflect_in_surface(ray, object, pX, alpha):
-    c_alpha = interp_objects_root(object.first, object.second, alpha)
-    centre = up(get_circle_in_euc(c_alpha)[0])
-    normal = centre ^ pX ^ einf
+    # print(pX, alpha)
+    normal = get_normal(object.first, object.second, alpha, pX)
     return normalised(normal + ray)
 
 
@@ -369,7 +402,7 @@ def render():
     initial = RMVR(up(Ptl))
     clipped = 0
     for i in range(0, w):
-        if i % 10 == 0:
+        if i % 1 == 0:
             print(i/w * 100, "%")
         point = initial
         line = normalised(upcam ^ initial ^ einf)
@@ -400,8 +433,8 @@ if __name__ == "__main__":
     a1 = 0.02
     a2 = 0.0
     a3 = 0.002
-    w = 400
-    h = 300
+    w = 60
+    h = 60
     options = {'ambient': True, 'specular': True, 'diffuse': True}
     ambient = 0.3
     k = 1.  # Magic constant to scale everything by the same amount!
@@ -442,9 +475,9 @@ if __name__ == "__main__":
     #     Sphere(7*e3 + 25*e2 + 5*e1, 7., np.array([0.2, 0.2, 0.2]), k * 1., 100., k * 0.2, k * 1.0, k * 1.)
     # )
 
-    C1 = normalised(up(-e3) ^ up(e3) ^ up(e2))
+    C1 = normalised(up(-4*e3) ^ up(4*e3) ^ up(4*e2))
 
-    C2 = normalised(up(5*e1-e3 + 3*e3) ^ up(5*e1+e3+ 3*e3) ^ up(5*e1+e2+ 3*e3))
+    C2 = normalised(up(5*e1-4*e3) ^ up(5*e1+4*e3) ^ up(5*e1+4*e2))
 
     scene.append(
         Interp_Surface(C1, C2, np.array([0., 0., 1.]), k * 1., 100., k * 1., k * 1., k * 0.)
@@ -452,8 +485,8 @@ if __name__ == "__main__":
 
 
     # Camera definitions
-    cam = 3.*e3 - 10.*e2 + 1.*e1
-    lookat = 3.*e3 + e1
+    cam = - 10.*e2 + 1.*e1
+    lookat = e1
     upcam = up(cam)
     f = 1.
     xmax = 1.0
