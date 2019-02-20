@@ -238,7 +238,6 @@ def pointofXsurface(L, C1, C2, origin):
     # Check each
 
     # Check both
-    print("Checking point of X surface!")
     def rootfunc(alpha):
         return [(meet(interp_objects_root(C1,C2,alpha[0]), L) ** 2)[0], (meet(interp_objects_root(C1,C2,alpha[1]), L) ** 2)[0]]
     sol = fsolve(rootfunc, np.array([0,1]),full_output=True)
@@ -248,6 +247,8 @@ def pointofXsurface(L, C1, C2, origin):
     # Check if it misses entirely
     if success != 1:
         return np.array([-1.]), None
+    print("Two alpha values are: ")
+    print(zeros_crossing[0], zeros_crossing[1])
     if zeros_crossing[0] < 0 or zeros_crossing[0] > 1:
         return np.array([-1.]), None
     if zeros_crossing[1] < 0 or zeros_crossing[1] > 1:
@@ -255,9 +256,15 @@ def pointofXsurface(L, C1, C2, origin):
 
     # Check if it is in plane
     if np.abs(zeros_crossing[0] - zeros_crossing[1]) < 0.00001:
+        print("Two crossings!")
         # Intersect as it it were a sphere
         C = interp_objects_root(C1, C2, zeros_crossing[0])
         S = (C * (C ^ einf).normal() * I5).normal()
+        sc = GAScene()
+        sc.add_sphere(S)
+        sc.add_line(L, cyan)
+        sc.add_circle(C, red)
+        print(sc)
         return val_pointofXSphere(L.value, unsign_sphere(S).value, origin.value), zeros_crossing[0]
 
     # Get intersection points
@@ -298,19 +305,9 @@ def get_normal(C1,C2,alpha,P):
     PA = project_points_to_circle([P], Aplus)[0]
     PB = project_points_to_circle([P], Aminus)[0]
     L1 = (PA^PB^einf).normal()
-    L2 = ((A*einf*A)^P^einf).normal()
+    L2 = (normalise_n_minus_1(A*einf*A)^P^einf).normal()
     L3 = (L1*L2*L1).normal()
-    # print("")
-    # print(Aplus)
-    # print(Aminus)
-    # print(PA)
-    # print(PB)
-    # print(L1)
-    # print(L2)
-    # print(L3)
-    # print("\n")
     L4 = average_objects([L2,-L3])
-    #draw([L4,C1,C2,Aplus,Aminus,PA,PB],scale=0.5)
     return L4
 
 
@@ -407,6 +404,7 @@ def render():
         point = initial
         line = normalised(upcam ^ initial ^ einf)
         for j in range(0, h):
+            print("Pixel coords are; %d, %d" % (j, i))
             value = trace_ray(line, scene, upcam, 0)
             new_value = np.clip(value, 0, 1)
             if np.any(value > 1.) or np.any(value < 0.):
@@ -433,8 +431,8 @@ if __name__ == "__main__":
     a1 = 0.02
     a2 = 0.0
     a3 = 0.002
-    w = 60
-    h = 60
+    w = 30
+    h = 30
     options = {'ambient': True, 'specular': True, 'diffuse': True}
     ambient = 0.3
     k = 1.  # Magic constant to scale everything by the same amount!
@@ -508,7 +506,7 @@ if __name__ == "__main__":
     drawScene()
 
     im1 = Image.fromarray(render().astype('uint8'), 'RGB')
-    im1.save('figtest.png')
+    im1.save('figtestMeeting.png')
 
     print("\n\n")
     print("--- %s seconds ---" % (time.time() - start_time))
