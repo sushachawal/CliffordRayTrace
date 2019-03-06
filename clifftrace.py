@@ -246,12 +246,12 @@ def pointofXsurface(L, C1, C2, origin):
 
     # Check if it misses entirely
     if success != 1:
+        print("No intersection!")
+        print(sol)
         return np.array([-1.]), None
     print("Two alpha values are: ")
     print(zeros_crossing[0], zeros_crossing[1])
-    if zeros_crossing[0] < 0 or zeros_crossing[0] > 1:
-        return np.array([-1.]), None
-    if zeros_crossing[1] < 0 or zeros_crossing[1] > 1:
+    if (zeros_crossing[0] < 0 or zeros_crossing[0] > 1) and  (zeros_crossing[1] < 0 or zeros_crossing[1] > 1):
         return np.array([-1.]), None
 
     # Check if it is in plane
@@ -373,6 +373,11 @@ def trace_ray(ray, scene, origin, depth):
 
         norm = normalised(reflected - ray)
 
+        tmp_scene = GAScene()
+        tmp_scene.add_line(norm, magenta)
+        tmp_scene.add_line(reflected, green)
+        print(tmp_scene)
+
         fatt = getfattconf(d, a1, a2, a3)
 
         if options['specular']:
@@ -431,8 +436,8 @@ if __name__ == "__main__":
     a1 = 0.02
     a2 = 0.0
     a3 = 0.002
-    w = 30
-    h = 30
+    w = 40
+    h = 40
     options = {'ambient': True, 'specular': True, 'diffuse': True}
     ambient = 0.3
     k = 1.  # Magic constant to scale everything by the same amount!
@@ -477,8 +482,10 @@ if __name__ == "__main__":
 
     C2 = normalised(up(5*e1-4*e3) ^ up(5*e1+4*e3) ^ up(5*e1+4*e2))
 
+
+
     scene.append(
-        Interp_Surface(C1, C2, np.array([0., 0., 1.]), k * 1., 100., k * 1., k * 1., k * 0.)
+        Interp_Surface(C1, C2, np.array([0., 0., 1.]), k * 1., 100., k * .5, k * 1., k * 0.)
     )
 
 
@@ -506,7 +513,19 @@ if __name__ == "__main__":
     drawScene()
 
     im1 = Image.fromarray(render().astype('uint8'), 'RGB')
-    im1.save('figtestMeeting.png')
+    im1.save('figtestMeetingSmall.png')
+
+    equator_circle = (C1 + C2).normal()
+
+    interp_sphere = (equator_circle * (equator_circle ^ einf).normal() * I5).normal()
+
+    scene = [Sphere(0, 0, np.array([0., 0., 1.]), k * 1., 100., k * 0.5, k * 1., k * 0.)]
+    scene[0].object = unsign_sphere(interp_sphere)
+
+    drawScene()
+
+    im1 = Image.fromarray(render().astype('uint8'), 'RGB')
+    im1.save('figtestSphereSmall.png')
 
     print("\n\n")
     print("--- %s seconds ---" % (time.time() - start_time))
