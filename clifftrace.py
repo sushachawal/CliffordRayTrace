@@ -240,7 +240,7 @@ def pointofXsurface(L, C1, C2, origin):
     # Check both
     def rootfunc(alpha):
         return [(meet(interp_objects_root(C1,C2,alpha[0]), L) ** 2)[0], (meet(interp_objects_root(C1,C2,alpha[1]), L) ** 2)[0]]
-    sol = fsolve(rootfunc, np.array([0,1]),full_output=True)
+    sol = fsolve(rootfunc, np.array([pointofXsurface.alpha_left,pointofXsurface.alpha_right]),full_output=True)
     zeros_crossing = sol[0]
     success = sol[2]
 
@@ -253,6 +253,9 @@ def pointofXsurface(L, C1, C2, origin):
     print(zeros_crossing[0], zeros_crossing[1])
     if (zeros_crossing[0] < 0 or zeros_crossing[0] > 1) and  (zeros_crossing[1] < 0 or zeros_crossing[1] > 1):
         return np.array([-1.]), None
+
+    pointofXsurface.alpha_left = zeros_crossing[0]
+    pointofXsurface.alpha_right = zeros_crossing[1]
 
     # Check if it is in plane
     if np.abs(zeros_crossing[0] - zeros_crossing[1]) < 0.00001:
@@ -287,7 +290,8 @@ def pointofXsurface(L, C1, C2, origin):
             return p2_val, zeros_crossing[1]
 
     return np.array([-1.]), None
-
+pointofXsurface.alpha_left = 0
+pointofXsurface.alpha_right = 1
 
 def project_points_to_circle(point_list, circle):
     """
@@ -302,14 +306,13 @@ def get_normal(C1,C2,alpha,P):
     Aplus = interp_objects_root(C1,C2,alpha+0.001)
     Aminus = interp_objects_root(C1,C2,alpha-0.001)
     A = interp_objects_root(C1,C2,alpha)
-    PA = project_points_to_circle([P], Aplus)[0]
-    PB = project_points_to_circle([P], Aminus)[0]
-    L1 = (PA^PB^einf).normal()
-    L2 = (normalise_n_minus_1(A*einf*A)^P^einf).normal()
-    L3 = (L1*L2*L1).normal()
-    L4 = average_objects([L2,-L3])
-    return L4
-
+    Pplus = project_points_to_circle([P], Aplus)[0]
+    Pminus = project_points_to_circle([P], Aminus)[0]
+    CA = (Pminus ^ P ^ Pplus).normal()
+    Tangent_CA = ((CA | P) ^ einf).normal()
+    Tangent_A = ((A | P) ^ einf).normal()
+    normal = layout.MultiVector(value = project_val((Tangent_A*Tangent_CA*I5).value, 3)).normal()
+    return normal
 
 def reflect_in_surface(ray, object, pX, alpha):
     # print(pX, alpha)
