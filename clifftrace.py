@@ -142,8 +142,10 @@ def drawScene():
 def new_sphere(p1, p2, p3, p4):
     return unsign_sphere(normalised(up(p1) ^ up(p2) ^ up(p3) ^ up(p4)))
 
+
 def new_circle(p1, p2, p3):
     return normalised(up(p1) ^ up(p2) ^ up(p3))
+
 
 def new_plane(p1, p2, p3):
     return normalised(up(p1) ^ up(p2) ^ up(p3) ^ einf)
@@ -240,34 +242,30 @@ def pointofXsurface(L, C1, C2, origin):
     # Check both
     def rootfunc(alpha):
         return [(meet(interp_objects_root(C1,C2,alpha[0]), L) ** 2)[0], (meet(interp_objects_root(C1,C2,alpha[1]), L) ** 2)[0]]
+
+    # alpha_left and alpha_right are static function variables.
+    # Initialised at the end of this function to 0 and 1 respectively
     sol = fsolve(rootfunc, np.array([pointofXsurface.alpha_left,pointofXsurface.alpha_right]),full_output=True)
     zeros_crossing = sol[0]
     success = sol[2]
 
     # Check if it misses entirely
     if success != 1:
-        print("No intersection!")
-        print(sol)
         return np.array([-1.]), None
-    print("Two alpha values are: ")
-    print(zeros_crossing[0], zeros_crossing[1])
+
     if (zeros_crossing[0] < 0 or zeros_crossing[0] > 1) and  (zeros_crossing[1] < 0 or zeros_crossing[1] > 1):
         return np.array([-1.]), None
 
+    print("Alpha values are: ")
+    print(zeros_crossing)
     pointofXsurface.alpha_left = zeros_crossing[0]
     pointofXsurface.alpha_right = zeros_crossing[1]
 
     # Check if it is in plane
     if np.abs(zeros_crossing[0] - zeros_crossing[1]) < 0.00001:
-        print("Two crossings!")
         # Intersect as it it were a sphere
         C = interp_objects_root(C1, C2, zeros_crossing[0])
         S = (C * (C ^ einf).normal() * I5).normal()
-        sc = GAScene()
-        sc.add_sphere(S)
-        sc.add_line(L, cyan)
-        sc.add_circle(C, red)
-        print(sc)
         return val_pointofXSphere(L.value, unsign_sphere(S).value, origin.value), zeros_crossing[0]
 
     # Get intersection points
@@ -377,8 +375,9 @@ def trace_ray(ray, scene, origin, depth):
         norm = normalised(reflected - ray)
 
         tmp_scene = GAScene()
-        tmp_scene.add_line(norm, magenta)
-        tmp_scene.add_line(reflected, green)
+        tmp_scene.add_line(ray, red)
+        tmp_scene.add_line(norm, green)
+        # tmp_scene.add_line(reflected, green)
         print(tmp_scene)
 
         fatt = getfattconf(d, a1, a2, a3)
@@ -524,7 +523,7 @@ if __name__ == "__main__":
 
     scene = [Sphere(0, 0, np.array([0., 0., 1.]), k * 1., 100., k * 0.5, k * 1., k * 0.)]
     scene[0].object = unsign_sphere(interp_sphere)
-
+    print("\n\nNow drawing Sphere:\n\n")
     drawScene()
 
     im1 = Image.fromarray(render().astype('uint8'), 'RGB')
