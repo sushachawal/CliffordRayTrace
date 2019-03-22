@@ -190,9 +190,9 @@ def val_pointofXplane(ray_val, plane_val, origin_val):
     if pX[0] == -1.:
         return pX
     new_line = omt_func(origin_val, omt_func(pX, ninf_val))
-    if abs((gmt_func(new_line, new_line))[0]) < 0.00001:
+    if (gmt_func(new_line, new_line))[0] > 0:
         return np.array([-1.])
-    if imt_func(ray_val, val_normalised(new_line))[0] > 0:
+    if abs(imt_func(ray_val, val_normalised(new_line))[0]) < 0.0001:
         return pX
     return np.array([-1.])
 
@@ -269,17 +269,20 @@ def pointofXsurface(L, C1, C2, origin):
         return val_pointofXSphere(L.value, unsign_sphere(S).value, origin.value), zeros_crossing[0]
 
     # Get intersection points
-    p1 = meet(interp_objects_root(C1, C2, zeros_crossing[0]), L)
-    p2 = meet(interp_objects_root(C1, C2, zeros_crossing[1]), L)
+    plane1_val = val_normalised(omt_func(interp_objects_root(C1, C2, zeros_crossing[0]).value, einf.value))
+    plane2_val = val_normalised(omt_func(interp_objects_root(C1, C2, zeros_crossing[1]).value, einf.value))
 
-    p1_val = normalise_n_minus_1((p1*einf*p1)(1)).value
-    p2_val = normalise_n_minus_1((p2*einf*p2)(1)).value
+    p1_val = val_pointofXplane(L.value, plane1_val, origin.value)
+    p2_val = val_pointofXplane(L.value, plane2_val, origin.value)
 
-    # Assume for now that the points are not inside the object.
-    new_line1 = val_normalised( omt_func(origin.value, omt_func(p1_val, ninf_val)) )
-    new_line2 = val_normalised( omt_func(origin.value, omt_func(p2_val, ninf_val)) )
-    if abs((gmt_func(new_line1, new_line1))[0]) < 0.00001 or abs((gmt_func(new_line2, new_line2))[0]) < 0.00001:
+    if p1_val[0] == -1. and p2_val[0] == -1.:
         return np.array([-1.]), None
+
+    if p2_val[0] == -1.:
+        return p1_val
+
+    if p1_val[0] == -1.:
+        return p2_val
 
     if imt_func(L.value, val_normalised(new_line1))[0] > 0:
         if imt_func(p1_val, origin.value)[0] > imt_func(p2_val, origin.value)[0]:
@@ -299,6 +302,35 @@ def project_points_to_circle(point_list, circle):
     planar_points = project_points_to_plane(point_list,circle_plane)
     circle_points = project_points_to_sphere(planar_points, -circle*circle_plane*I5)
     return circle_points
+
+def val_differentiateCircle(alpha, C1_val, C2_val):
+    X_val = alpha*C1_val + (1-alpha) * C2_val
+    phiSquared = -gmt_func(X_val, adjoint_func(X_val))
+    phiSq0 = phiSquared[0]
+    phiSq4 = layout.MultiVector(value=phiSquared)(4).value
+    dotz = C1_val - C2_val
+    dotphiSq0 = 2*alpha*gmt_func(C1_val,C1_val)[0] - 2*(1-alpha)*gmt_func(C2_val,C2_val)[0] + (1-2*alpha)*(gmt_func(C1_val,C2_val)+gmt_func(C1_val,C1_val))[0]
+    dotphiSq4 = (1-2*alpha) * layout.MultiVector(value=gmt_func(C1_val,C2_val)+gmt_func(C1_val,C1_val))(4).value
+    tempsqrt = np.sqrt(phiSq0 -  gmt_func(phiSq4, phiSq4)[0])
+    dott = (dotphiSq0 + (2*(phiSq0*dotphiSq0) - gmt_func(phiSq4, dotphiSq4) -gmt_func(dotphiSq4, phiSq4))/tempsqrt)[0]
+    t = dotphiSq0 + tempsqrt
+    sqrt2t = np.sqrt(2*t)
+    f = t/(sqrt2t)
+    dotf = (3*dott)/(2*sqrt2t)
+    g = phiSq4/(sqrt2t)
+    dotg = (4*t*dotphiSq4 - dott *phiSq4)/(2*t*sqrt2t)
+    k = (f*f - gmt_func(g,g)[0])
+    dotk = (2*f*dotf - gmt_func(g,dotg) - gmt_func(dotg, g))[0]
+    fminusg = -g
+    fminusg[0] += f
+    dotfminusdotg = -dotg
+    dotfminusdotg[0] += f
+    term1 = k*gmt_func(fminusg, dotz)
+    term2 = k*gmt_func(dotfminusdotg, X_val)
+    term3 = dotk*gmt_func(fminusg, X_val)
+    return layout.MultiVector(value=val_normalised(term1 + term2 + term3))(3)
+
+
 
 def get_normal(C1,C2,alpha,P):
     Aplus = interp_objects_root(C1,C2,alpha+0.001)
@@ -390,7 +422,7 @@ def trace_ray(ray, scene, origin, depth):
                          max(cosangle_between_lines(norm, normalised(toL-ray)), 0) ** obj.spec_k * light.colour
 
         if options['diffuse']:
-            pixel_col += Satt * fatt * obj.diffuse * max(cosangle_between_lines(norm, toL), 0) * obj.colour
+            pixel_col += Satt * fatt * obj.diffuse * max(cosangle_between_lines(norm, toL), 0) * obj.colour * light.colour
 
     if depth >= max_depth:
         return pixel_col
@@ -515,7 +547,7 @@ if __name__ == "__main__":
     drawScene()
 
     im1 = Image.fromarray(render().astype('uint8'), 'RGB')
-    im1.save('figtestMeetingSmall.png')
+    im1.save('figtestLatestSmall.png')
 
     equator_circle = (C1 + C2).normal()
 
