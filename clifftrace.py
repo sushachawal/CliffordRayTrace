@@ -189,10 +189,10 @@ def val_pointofXplane(ray_val, plane_val, origin_val):
     pX = val_intersect_line_and_plane_to_point(ray_val, plane_val)
     if pX[0] == -1.:
         return pX
-    new_line = omt_func(origin_val, omt_func(pX, ninf_val))
-    if (gmt_func(new_line, new_line))[0] > 0:
+    new_line1 = omt_func(origin_val, omt_func(pX, ninf_val))
+    if abs((gmt_func(new_line1, new_line1))[0]) < 0.00001:
         return np.array([-1.])
-    if abs(imt_func(ray_val, val_normalised(new_line))[0]) < 0.0001:
+    if imt_func(ray_val, val_normalised(new_line1))[0] > 0:
         return pX
     return np.array([-1.])
 
@@ -251,9 +251,12 @@ def pointofXsurface(L, C1, C2, origin):
 
     # Check if it misses entirely
     if success != 1:
+        print("No alpha found!")
+        print(sol)
         return np.array([-1.]), None
 
     if (zeros_crossing[0] < 0 or zeros_crossing[0] > 1) and  (zeros_crossing[1] < 0 or zeros_crossing[1] > 1):
+        print("Returned out of bounds alpha values of: (%f,%f)" %(zeros_crossing[0], zeros_crossing[1]))
         return np.array([-1.]), None
 
     print("Alpha values are: ")
@@ -279,18 +282,16 @@ def pointofXsurface(L, C1, C2, origin):
         return np.array([-1.]), None
 
     if p2_val[0] == -1.:
-        return p1_val
+        return p1_val, zeros_crossing[0]
 
     if p1_val[0] == -1.:
-        return p2_val
+        return p2_val, zeros_crossing[1]
 
-    if imt_func(L.value, val_normalised(new_line1))[0] > 0:
-        if imt_func(p1_val, origin.value)[0] > imt_func(p2_val, origin.value)[0]:
-            return p1_val, zeros_crossing[0]
-        else:
-            return p2_val, zeros_crossing[1]
+    if imt_func(p1_val, origin.value)[0] > imt_func(p2_val, origin.value)[0]:
+        return p1_val, zeros_crossing[0]
+    else:
+        return p2_val, zeros_crossing[1]
 
-    return np.array([-1.]), None
 pointofXsurface.alpha_left = 0
 pointofXsurface.alpha_right = 1
 
@@ -333,19 +334,28 @@ def val_differentiateCircle(alpha, C1_val, C2_val):
 
 
 def get_normal(C1,C2,alpha,P):
-    Aplus = interp_objects_root(C1,C2,alpha+0.001)
-    Aminus = interp_objects_root(C1,C2,alpha-0.001)
-    A = interp_objects_root(C1,C2,alpha)
-    Pplus = project_points_to_circle([P], Aplus)[0]
-    Pminus = project_points_to_circle([P], Aminus)[0]
-    CA = (Pminus ^ P ^ Pplus).normal()
-    Tangent_CA = ((CA | P) ^ einf).normal()
-    Tangent_A = ((A | P) ^ einf).normal()
-    normal = layout.MultiVector(value = project_val((Tangent_A*Tangent_CA*I5).value, 3)).normal()
+    # Aplus = interp_objects_root(C1,C2,alpha+0.001)
+    # Aminus = interp_objects_root(C1,C2,alpha-0.001)
+    # A = interp_objects_root(C1,C2,alpha)
+    # Pplus = project_points_to_circle([P], Aplus)[0]
+    # Pminus = project_points_to_circle([P], Aminus)[0]
+    # CA = (Pminus ^ P ^ Pplus).normal()
+    # Tangent_CA = ((CA | P) ^ einf).normal()
+    # Tangent_A = ((A | P) ^ einf).normal()
+    # normal = layout.MultiVector(value = project_val((Tangent_A*Tangent_CA*I5).value, 3)).normal()
+    dotC = val_differentiateCircle(alpha, C2.value, C1.value)
+    C = interp_objects_root(C1, C2, alpha)
+    omegaC = C*dotC
+    dotP = P|omegaC
+    LT = (dotP ^ P ^ einf).normal()
+    LC = ((C|P)^einf).normal()
+    normal = (LT*LC*I5)(3).normal()
     return normal
 
 def reflect_in_surface(ray, object, pX, alpha):
-    # print(pX, alpha)
+    sc = GAScene()
+    sc.add_euc_point(pX, blue)
+    file.write(str(sc) + "\n")
     normal = get_normal(object.first, object.second, alpha, pX)
     return normalised(normal + ray)
 
@@ -375,13 +385,19 @@ def intersects(ray, scene, origin):
             dist, index, pXfin, alphaFin = t, idx, layout.MultiVector(value=pX), alpha
     return pXfin, index, alphaFin
 
-
+file = open("intersection_points.txt", "a+")
 def trace_ray(ray, scene, origin, depth):
     pixel_col = np.zeros(3)
     pX, index, alpha = intersects(ray, scene, origin)
     if index is None:
         return background
     obj = scene[index]
+    sc = GAScene()
+    if obj.type == "Sphere":
+        sc.add_euc_point(pX)
+    else:
+        sc.add_euc_point(pX, green)
+    file.write(str(sc) + "\n")
     for light in lights:
         Satt = 1.
         upl_val = val_up(light.position.value)
@@ -403,14 +419,16 @@ def trace_ray(ray, scene, origin, depth):
                 omt_func(obj.object.value, einf.value)), ray.value), val_normalised(omt_func(obj.object.value,einf.value)))))
         else:
             reflected = reflect_in_surface(ray, obj, pX, alpha)
+        if obj.type == "Sphere":
+            norm = normalised(reflected - ray)
+        else:
+            norm = get_normal(obj.first, obj.second, alpha, pX)
 
-        norm = normalised(reflected - ray)
-
-        tmp_scene = GAScene()
-        tmp_scene.add_line(ray, red)
-        tmp_scene.add_line(norm, green)
+        # tmp_scene = GAScene()
+        # tmp_scene.add_line(ray, red)
+        # tmp_scene.add_line(norm, green)
         # tmp_scene.add_line(reflected, green)
-        print(tmp_scene)
+        # print(tmp_scene)
 
         fatt = getfattconf(d, a1, a2, a3)
 
@@ -438,8 +456,8 @@ def render():
     initial = RMVR(up(Ptl))
     clipped = 0
     for i in range(0, w):
-        if i % 1 == 0:
-            print(i/w * 100, "%")
+        # if i % 1 == 0:
+        #     print(i/w * 100, "%")
         point = initial
         line = normalised(upcam ^ initial ^ einf)
         for j in range(0, h):
@@ -453,7 +471,7 @@ def render():
             line = normalised(upcam ^ point ^ einf)
 
         initial = apply_rotor(initial, dTx)
-    print("Total number of pixels clipped = %d" % clipped)
+    # print("Total number of pixels clipped = %d" % clipped)
     return img
 
 if __name__ == "__main__":
@@ -519,7 +537,7 @@ if __name__ == "__main__":
 
 
     scene.append(
-        Interp_Surface(C1, C2, np.array([0., 0., 1.]), k * 1., 100., k * .5, k * 1., k * 0.)
+        Interp_Surface(C2, C1, np.array([0., 0., 1.]), k * 1., 100., k * .5, k * 1., k * 0.)
     )
 
 
@@ -544,7 +562,7 @@ if __name__ == "__main__":
 
     Ptl = f*1.0*e2 - e1*xmax + e3*ymax
 
-    drawScene()
+    # drawScene()
 
     im1 = Image.fromarray(render().astype('uint8'), 'RGB')
     im1.save('figtestLatestSmall.png')
@@ -555,8 +573,8 @@ if __name__ == "__main__":
 
     scene = [Sphere(0, 0, np.array([0., 0., 1.]), k * 1., 100., k * 0.5, k * 1., k * 0.)]
     scene[0].object = unsign_sphere(interp_sphere)
-    print("\n\nNow drawing Sphere:\n\n")
-    drawScene()
+    # print("\n\nNow drawing Sphere:\n\n")
+    # drawScene()
 
     im1 = Image.fromarray(render().astype('uint8'), 'RGB')
     im1.save('figtestSphereSmall.png')
