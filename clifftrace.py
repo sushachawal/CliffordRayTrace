@@ -419,10 +419,11 @@ def trace_ray(ray, scene, origin, depth):
                 omt_func(obj.object.value, einf.value)), ray.value), val_normalised(omt_func(obj.object.value,einf.value)))))
         else:
             reflected = reflect_in_surface(ray, obj, pX, alpha)
-        if obj.type == "Sphere":
-            norm = normalised(reflected - ray)
-        else:
+        if obj.type == "Surface":
             norm = get_normal(obj.first, obj.second, alpha, pX)
+        else:
+            norm = normalised(reflected - ray)
+
 
         # tmp_scene = GAScene()
         # tmp_scene.add_line(ray, red)
