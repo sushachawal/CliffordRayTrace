@@ -243,9 +243,11 @@ def pointofXsurface(L, C1, C2, origin):
     def rootfunc(alpha):
         return [(meet(interp_objects_root(C1,C2,alpha[0]), L) ** 2)[0], (meet(interp_objects_root(C1,C2,alpha[1]), L) ** 2)[0]]
 
+    # TODO: Need to make this non-linear solver more robust
+
     # alpha_left and alpha_right are static function variables.
     # Initialised at the end of this function to 0 and 1 respectively
-    sol = fsolve(rootfunc, np.array([pointofXsurface.alpha_left,pointofXsurface.alpha_right]),full_output=True)
+    sol = fsolve(rootfunc, np.array([pointofXsurface.alpha_left, pointofXsurface.alpha_right]),full_output=True)
     zeros_crossing = sol[0]
     success = sol[2]
 
@@ -304,7 +306,7 @@ def project_points_to_circle(point_list, circle):
     circle_points = project_points_to_sphere(planar_points, -circle*circle_plane*I5)
     return circle_points
 
-def val_differentiateCircle(alpha, C1_val, C2_val):
+def val_differentiateLinearCircle(alpha, C1_val, C2_val):
     X_val = alpha*C1_val + (1-alpha) * C2_val
     phiSquared = -gmt_func(X_val, adjoint_func(X_val))
     phiSq0 = phiSquared[0]
@@ -332,7 +334,6 @@ def val_differentiateCircle(alpha, C1_val, C2_val):
     return layout.MultiVector(value=val_normalised(term1 + term2 + term3))(3)
 
 
-
 def get_normal(C1,C2,alpha,P):
     # Aplus = interp_objects_root(C1,C2,alpha+0.001)
     # Aminus = interp_objects_root(C1,C2,alpha-0.001)
@@ -343,7 +344,7 @@ def get_normal(C1,C2,alpha,P):
     # Tangent_CA = ((CA | P) ^ einf).normal()
     # Tangent_A = ((A | P) ^ einf).normal()
     # normal = layout.MultiVector(value = project_val((Tangent_A*Tangent_CA*I5).value, 3)).normal()
-    dotC = val_differentiateCircle(alpha, C2.value, C1.value)
+    dotC = val_differentiateLinearCircle(alpha, C2.value, C1.value)
     C = interp_objects_root(C1, C2, alpha)
     omegaC = C*dotC
     dotP = P|omegaC
@@ -357,7 +358,7 @@ def reflect_in_surface(ray, object, pX, alpha):
     sc.add_euc_point(pX, blue)
     file.write(str(sc) + "\n")
     normal = get_normal(object.first, object.second, alpha, pX)
-    return normalised(normal + ray)
+    return normal + ray
 
 
 def intersects(ray, scene, origin):
@@ -419,11 +420,9 @@ def trace_ray(ray, scene, origin, depth):
                 omt_func(obj.object.value, einf.value)), ray.value), val_normalised(omt_func(obj.object.value,einf.value)))))
         else:
             reflected = reflect_in_surface(ray, obj, pX, alpha)
-        if obj.type == "Surface":
-            norm = get_normal(obj.first, obj.second, alpha, pX)
-        else:
-            norm = normalised(reflected - ray)
 
+
+        norm = normalised(reflected - ray)
 
         # tmp_scene = GAScene()
         # tmp_scene.add_line(ray, red)
@@ -434,9 +433,6 @@ def trace_ray(ray, scene, origin, depth):
         fatt = getfattconf(d, a1, a2, a3)
 
         if options['specular']:
-            # if obj.type == "Circle":
-            #     print(Satt * fatt * obj.specular * \
-            #              max(cosangle_between_lines(norm, normalised(toL-ray)), 0) ** obj.spec_k * light.colour)
             pixel_col += Satt * fatt * obj.specular * \
                          max(cosangle_between_lines(norm, normalised(toL-ray)), 0) ** obj.spec_k * light.colour
 
@@ -549,8 +545,8 @@ if __name__ == "__main__":
     f = 1.
     xmax = 1.0
     ymax = xmax*(h*1.0/w)
-
     # No need to define the up vector since we're assuming it's e3 pre-transform.
+    #TODO: Need to encorporate the "up" vector into this model
 
     start_time = time.time()
 
