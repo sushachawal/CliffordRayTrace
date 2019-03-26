@@ -244,65 +244,6 @@ def val_interp_objects_root(C1_val, C2_val, alpha):
 def my_interp_objects_root(C1, C2, alpha):
     return layout.MultiVector(value = val_interp_objects_root(C1.value, C2.value, alpha))
 
-# @numba.njit
-# def val_pointofXsurface(L_val, C1_val, C2_val, origin_val):
-#     def rootfunc(alpha):
-#         meet1 = meet_val(val_interp_objects_root(C1_val, C2_val, alpha[0]), L_val)
-#         meet2 = meet_val(val_interp_objects_root(C1_val, C2_val, alpha[1]), L_val)
-#         return [gmt_func(meet1, meet1)[0], gmt_func(meet2, meet2)[0]]
-#
-#     # alpha_left and alpha_right are static function variables.
-#     # Initialised at the end of this function to 0 and 1 respectively
-#     sol = fsolve(rootfunc, np.array([val_pointofXsurface.alpha_left, val_pointofXsurface.alpha_right]),full_output=True)
-#     zeros_crossing = sol[0]
-#     success = sol[2]
-#
-#     # Check if it misses entirely
-#     if success != 1:
-#         # print("No alpha found!")
-#         # print(sol)
-#         return np.array([-1.]), None
-#
-#     if (zeros_crossing[0] < 0 or zeros_crossing[0] > 1) and  (zeros_crossing[1] < 0 or zeros_crossing[1] > 1):
-#         # print("Returned out of bounds alpha values of: (%f,%f)" %(zeros_crossing[0], zeros_crossing[1]))
-#         return np.array([-1.]), None
-#
-#     # print("Alpha values are: ")
-#     # print(zeros_crossing)
-#     val_pointofXsurface.alpha_left = zeros_crossing[0]
-#     val_pointofXsurface.alpha_right = zeros_crossing[1]
-#
-#     # Check if it is in plane
-#     if np.abs(zeros_crossing[0] - zeros_crossing[1]) < 0.00001:
-#         # Intersect as it it were a sphere
-#         C = val_interp_objects_root(C1_val, C2_val, zeros_crossing[0])
-#         S = val_normalised(gmt_func(gmt_func(C, val_normalised(omt_func(C, einf.value))), I5.value))
-#         return val_pointofXSphere(L_val, val_unsign_sphere(S), origin_val), zeros_crossing[0]
-#
-#     # Get intersection points
-#     plane1_val = val_normalised(omt_func(val_interp_objects_root(C1, C2, zeros_crossing[0]), einf.value))
-#     plane2_val = val_normalised(omt_func(val_interp_objects_root(C1, C2, zeros_crossing[1]), einf.value))
-#
-#     p1_val = val_pointofXplane(L_val, plane1_val, origin_val)
-#     p2_val = val_pointofXplane(L_val, plane2_val, origin_val)
-#
-#     if p1_val[0] == -1. and p2_val[0] == -1.:
-#         return np.array([-1.]), None
-#
-#     if p2_val[0] == -1.:
-#         return p1_val, zeros_crossing[0]
-#
-#     if p1_val[0] == -1.:
-#         return p2_val, zeros_crossing[1]
-#
-#     if imt_func(p1_val, origin_val)[0] > imt_func(p2_val, origin_val)[0]:
-#         return p1_val, zeros_crossing[0]
-#     else:
-#         return p2_val, zeros_crossing[1]
-# val_pointofXsurface.alpha_left = 0
-# val_pointofXsurface.alpha_right = 1
-
-
 
 def pointofXsurface(L, C1, C2, origin):
     # Check if the ray hits the endpoints
