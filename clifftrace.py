@@ -162,6 +162,9 @@ def new_point_pair(p1, p2):
 def unsign_sphere(S):
     return normalised(S/(S.dual()|einf)[0])
 
+@numba.njit
+def val_unsign_sphere(S_val):
+    return val_normalised(S_val / imt_func(dual_func(S_val), einf.value)[0])
 
 @numba.njit
 def val_pointofXSphere(ray_val, sphere_val, origin_val):
@@ -233,6 +236,73 @@ def pointofXcircle(ray_val, circle_val, origin_val):
     else:
         return np.array([-1.])
 
+@numba.njit
+def val_interp_objects_root(C1_val, C2_val, alpha):
+    C_temp = (1-alpha) * C1_val + alpha * C2_val
+    return val_normalised(neg_twiddle_root_val(C_temp)[0])
+
+def my_interp_objects_root(C1, C2, alpha):
+    return layout.MultiVector(value = val_interp_objects_root(C1.value, C2.value, alpha))
+
+# @numba.njit
+# def val_pointofXsurface(L_val, C1_val, C2_val, origin_val):
+#     def rootfunc(alpha):
+#         meet1 = meet_val(val_interp_objects_root(C1_val, C2_val, alpha[0]), L_val)
+#         meet2 = meet_val(val_interp_objects_root(C1_val, C2_val, alpha[1]), L_val)
+#         return [gmt_func(meet1, meet1)[0], gmt_func(meet2, meet2)[0]]
+#
+#     # alpha_left and alpha_right are static function variables.
+#     # Initialised at the end of this function to 0 and 1 respectively
+#     sol = fsolve(rootfunc, np.array([val_pointofXsurface.alpha_left, val_pointofXsurface.alpha_right]),full_output=True)
+#     zeros_crossing = sol[0]
+#     success = sol[2]
+#
+#     # Check if it misses entirely
+#     if success != 1:
+#         # print("No alpha found!")
+#         # print(sol)
+#         return np.array([-1.]), None
+#
+#     if (zeros_crossing[0] < 0 or zeros_crossing[0] > 1) and  (zeros_crossing[1] < 0 or zeros_crossing[1] > 1):
+#         # print("Returned out of bounds alpha values of: (%f,%f)" %(zeros_crossing[0], zeros_crossing[1]))
+#         return np.array([-1.]), None
+#
+#     # print("Alpha values are: ")
+#     # print(zeros_crossing)
+#     val_pointofXsurface.alpha_left = zeros_crossing[0]
+#     val_pointofXsurface.alpha_right = zeros_crossing[1]
+#
+#     # Check if it is in plane
+#     if np.abs(zeros_crossing[0] - zeros_crossing[1]) < 0.00001:
+#         # Intersect as it it were a sphere
+#         C = val_interp_objects_root(C1_val, C2_val, zeros_crossing[0])
+#         S = val_normalised(gmt_func(gmt_func(C, val_normalised(omt_func(C, einf.value))), I5.value))
+#         return val_pointofXSphere(L_val, val_unsign_sphere(S), origin_val), zeros_crossing[0]
+#
+#     # Get intersection points
+#     plane1_val = val_normalised(omt_func(val_interp_objects_root(C1, C2, zeros_crossing[0]), einf.value))
+#     plane2_val = val_normalised(omt_func(val_interp_objects_root(C1, C2, zeros_crossing[1]), einf.value))
+#
+#     p1_val = val_pointofXplane(L_val, plane1_val, origin_val)
+#     p2_val = val_pointofXplane(L_val, plane2_val, origin_val)
+#
+#     if p1_val[0] == -1. and p2_val[0] == -1.:
+#         return np.array([-1.]), None
+#
+#     if p2_val[0] == -1.:
+#         return p1_val, zeros_crossing[0]
+#
+#     if p1_val[0] == -1.:
+#         return p2_val, zeros_crossing[1]
+#
+#     if imt_func(p1_val, origin_val)[0] > imt_func(p2_val, origin_val)[0]:
+#         return p1_val, zeros_crossing[0]
+#     else:
+#         return p2_val, zeros_crossing[1]
+# val_pointofXsurface.alpha_left = 0
+# val_pointofXsurface.alpha_right = 1
+
+
 
 def pointofXsurface(L, C1, C2, origin):
     # Check if the ray hits the endpoints
@@ -253,16 +323,16 @@ def pointofXsurface(L, C1, C2, origin):
 
     # Check if it misses entirely
     if success != 1:
-        print("No alpha found!")
-        print(sol)
+        # print("No alpha found!")
+        # print(sol)
         return np.array([-1.]), None
 
     if (zeros_crossing[0] < 0 or zeros_crossing[0] > 1) and  (zeros_crossing[1] < 0 or zeros_crossing[1] > 1):
-        print("Returned out of bounds alpha values of: (%f,%f)" %(zeros_crossing[0], zeros_crossing[1]))
+        # print("Returned out of bounds alpha values of: (%f,%f)" %(zeros_crossing[0], zeros_crossing[1]))
         return np.array([-1.]), None
 
-    print("Alpha values are: ")
-    print(zeros_crossing)
+    # print("Alpha values are: ")
+    # print(zeros_crossing)
     pointofXsurface.alpha_left = zeros_crossing[0]
     pointofXsurface.alpha_right = zeros_crossing[1]
 
@@ -306,14 +376,15 @@ def project_points_to_circle(point_list, circle):
     circle_points = project_points_to_sphere(planar_points, -circle*circle_plane*I5)
     return circle_points
 
+@numba.njit
 def val_differentiateLinearCircle(alpha, C1_val, C2_val):
     X_val = alpha*C1_val + (1-alpha) * C2_val
     phiSquared = -gmt_func(X_val, adjoint_func(X_val))
     phiSq0 = phiSquared[0]
-    phiSq4 = layout.MultiVector(value=phiSquared)(4).value
+    phiSq4 = project_val(phiSquared,4)
     dotz = C1_val - C2_val
     dotphiSq0 = 2*alpha*gmt_func(C1_val,C1_val)[0] - 2*(1-alpha)*gmt_func(C2_val,C2_val)[0] + (1-2*alpha)*(gmt_func(C1_val,C2_val)+gmt_func(C1_val,C1_val))[0]
-    dotphiSq4 = (1-2*alpha) * layout.MultiVector(value=gmt_func(C1_val,C2_val)+gmt_func(C1_val,C1_val))(4).value
+    dotphiSq4 = (1-2*alpha) * project_val(gmt_func(C1_val,C2_val)+gmt_func(C1_val,C1_val), 4)
     tempsqrt = np.sqrt(phiSq0 -  gmt_func(phiSq4, phiSq4)[0])
     dott = (dotphiSq0 + (2*(phiSq0*dotphiSq0) - gmt_func(phiSq4, dotphiSq4) -gmt_func(dotphiSq4, phiSq4))/tempsqrt)[0]
     t = dotphiSq0 + tempsqrt
@@ -331,7 +402,7 @@ def val_differentiateLinearCircle(alpha, C1_val, C2_val):
     term1 = k*gmt_func(fminusg, dotz)
     term2 = k*gmt_func(dotfminusdotg, X_val)
     term3 = dotk*gmt_func(fminusg, X_val)
-    return layout.MultiVector(value=val_normalised(term1 + term2 + term3))(3)
+    return project_val(val_normalised(term1 + term2 + term3), 3)
 
 
 def get_normal(C1,C2,alpha,P):
@@ -345,6 +416,7 @@ def get_normal(C1,C2,alpha,P):
     # Tangent_A = ((A | P) ^ einf).normal()
     # normal = layout.MultiVector(value = project_val((Tangent_A*Tangent_CA*I5).value, 3)).normal()
     dotC = val_differentiateLinearCircle(alpha, C2.value, C1.value)
+    dotC = layout.MultiVector(value=dotC)
     C = interp_objects_root(C1, C2, alpha)
     omegaC = C*dotC
     dotP = P|omegaC
@@ -453,12 +525,12 @@ def render():
     initial = RMVR(up(Ptl))
     clipped = 0
     for i in range(0, w):
-        # if i % 1 == 0:
-        #     print(i/w * 100, "%")
+        if i % 1 == 0:
+            print(i/w * 100, "%")
         point = initial
         line = normalised(upcam ^ initial ^ einf)
         for j in range(0, h):
-            print("Pixel coords are; %d, %d" % (j, i))
+            # print("Pixel coords are; %d, %d" % (j, i))
             value = trace_ray(line, scene, upcam, 0)
             new_value = np.clip(value, 0, 1)
             if np.any(value > 1.) or np.any(value < 0.):
@@ -527,9 +599,17 @@ if __name__ == "__main__":
     #     Sphere(7*e3 + 25*e2 + 5*e1, 7., np.array([0.2, 0.2, 0.2]), k * 1., 100., k * 0.2, k * 1.0, k * 1.)
     # )
 
-    C1 = normalised(up(-4*e3) ^ up(4*e3) ^ up(4*e2))
+    rotorR1 = generate_rotation_rotor(np.pi/6,e1, e3)
+    rotorR2 = generate_rotation_rotor(np.pi/6, e1, e3)
+    rotorT2 = generate_translation_rotor(6*e1 + 3*e3)
+    rotorT1 = generate_translation_rotor(-2*e1)
 
-    C2 = normalised(up(5*e1-4*e3) ^ up(5*e1+4*e3) ^ up(5*e1+4*e2))
+    C1 = normalised(up(-3*e3) ^ up(3*e3) ^ up(3*e2))
+    C2 = normalised(up(-5*e3) ^ up(5*e3) ^ up(5*e2))
+    C1 = apply_rotor(C1, rotorR1)
+    C2 = apply_rotor(C2, rotorR2)
+    C1 = apply_rotor(C1, rotorT1)
+    C2 = apply_rotor(C2, rotorT2)
 
 
 
@@ -539,7 +619,7 @@ if __name__ == "__main__":
 
 
     # Camera definitions
-    cam = - 10.*e2 + 1.*e1
+    cam = - 13.*e2 + 1.*e1
     lookat = e1
     upcam = up(cam)
     f = 1.
@@ -559,7 +639,7 @@ if __name__ == "__main__":
 
     Ptl = f*1.0*e2 - e1*xmax + e3*ymax
 
-    # drawScene()
+    drawScene()
 
     im1 = Image.fromarray(render().astype('uint8'), 'RGB')
     im1.save('figtestLatestSmall.png')
@@ -570,8 +650,8 @@ if __name__ == "__main__":
 
     scene = [Sphere(0, 0, np.array([0., 0., 1.]), k * 1., 100., k * 0.5, k * 1., k * 0.)]
     scene[0].object = unsign_sphere(interp_sphere)
-    # print("\n\nNow drawing Sphere:\n\n")
-    # drawScene()
+    print("\n\nNow drawing Sphere:\n\n")
+    drawScene()
 
     im1 = Image.fromarray(render().astype('uint8'), 'RGB')
     im1.save('figtestSphereSmall.png')
