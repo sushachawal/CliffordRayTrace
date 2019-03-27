@@ -524,9 +524,9 @@ if __name__ == "__main__":
     a1 = 0.02
     a2 = 0.0
     a3 = 0.002
-    w = 40
-    h = 40
-    options = {'ambient': False, 'specular': True, 'diffuse': True}
+    w = 400
+    h = 300
+    options = {'ambient': True, 'specular': True, 'diffuse': True}
     ambient = 0.3
     k = 1.  # Magic constant to scale everything by the same amount!
     max_depth = 2
@@ -603,17 +603,17 @@ if __name__ == "__main__":
     im1 = Image.fromarray(render().astype('uint8'), 'RGB')
     im1.save('figtestLatest.png')
 
-    # equator_circle = (C1 + C2).normal()
-    #
-    # interp_sphere = (equator_circle * (equator_circle ^ einf).normal() * I5).normal()
-    #
-    # scene = [Sphere(0, 0, np.array([0., 0., 1.]), k * 1., 100., k * 0.5, k * 1., k * 0.)]
-    # scene[0].object = unsign_sphere(interp_sphere)
-    # print("\n\nNow drawing Sphere:\n\n")
-    # drawScene()
-    #
-    # im1 = Image.fromarray(render().astype('uint8'), 'RGB')
-    # im1.save('figtestSphereSmall.png')
+    equator_circle = (C1 + C2).normal()
+
+    interp_sphere = (equator_circle * (equator_circle ^ einf).normal() * I5).normal()
+
+    scene = [Sphere(0, 0, np.array([0., 0., 1.]), k * 1., 100., k * 0.5, k * 1., k * 0.)]
+    scene[0].object = unsign_sphere(interp_sphere)
+    print("\n\nNow drawing Sphere:\n\n")
+    drawScene()
+
+    im1 = Image.fromarray(render().astype('uint8'), 'RGB')
+    im1.save('figtestSphere.png')
 
     print("\n\n")
     print("--- %s seconds ---" % (time.time() - start_time))
