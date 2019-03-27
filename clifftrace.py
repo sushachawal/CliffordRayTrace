@@ -251,53 +251,54 @@ def pointofXsurface(L, C1, C2, origin):
     # Check each
 
     # Check both
-    zeros_crossing = []
-    const = 1000
-    for a in range(1, 999):
-        alpha = a/const
-        Calph = val_interp_objects_root(C1.value, C2.value, alpha)
-        m = meet_val(Calph, L.value)
-        val = abs(gmt_func(m,m)[0] - 0)
-        if val < 0.0007:
-            if len(zeros_crossing) < 2:
-                zeros_crossing.append((val, alpha))
-                zeros_crossing.sort(reverse = True)
-            elif val < zeros_crossing[0][0]:
-                zeros_crossing[0] = (val, alpha)
-                zeros_crossing.sort(reverse = True)
-
-    for i in range(len(zeros_crossing)):
-        zeros_crossing[i] = zeros_crossing[i][1]
-    # def rootfunc(alpha):
-    #     return [(meet(interp_objects_root(C1,C2,alpha[0]), L) ** 2)[0], (meet(interp_objects_root(C1,C2,alpha[1]), L) ** 2)[0]]
+    # zeros_crossing = []
+    # const = 1000
+    # for a in range(1, 999):
+    #     alpha = a/const
+    #     Calph = val_interp_objects_root(C1.value, C2.value, alpha)
+    #     m = meet_val(Calph, L.value)
+    #     val = abs(gmt_func(m,m)[0] - 0)
+    #     if val < 0.0007:
+    #         if len(zeros_crossing) < 2:
+    #             zeros_crossing.append((val, alpha))
+    #             zeros_crossing.sort(reverse = True)
+    #         elif val < zeros_crossing[0][0]:
+    #             zeros_crossing[0] = (val, alpha)
+    #             zeros_crossing.sort(reverse = True)
+    #
+    # for i in range(len(zeros_crossing)):
+    #     zeros_crossing[i] = zeros_crossing[i][1]
+    def rootfunc(alpha):
+        return [(meet(interp_objects_root(C1,C2,alpha[0]), L) ** 2)[0], (meet(interp_objects_root(C1,C2,alpha[1]), L) ** 2)[0]]
 
     # TODO: Need to make this non-linear solver more robust
 
     # alpha_left and alpha_right are static function variables.
     # Initialised at the end of this function to 0 and 1 respectively
-    # sol = fsolve(rootfunc, np.array([zero_vals[0][1], zero_vals[1][1]]),full_output=True)
-    # zeros_crossing = sol[0]
-    # success = sol[2]
-    success = len(zeros_crossing) != 0
+    sol = fsolve(rootfunc, np.array([pointofXsurface.alpha_left, pointofXsurface.alpha_right]),full_output=True)
+    zeros_crossing = sol[0]
+    success = sol[2]
+
+    # success = len(zeros_crossing) != 0
 
     # Check if it misses entirely
     if success != 1:
         print("No alpha found!")
-        # print(sol)
+        print(sol)
         return np.array([-1.]), None
 
-    if len(zeros_crossing) == 1:
-        plane_val = val_normalised(omt_func(interp_objects_root(C1, C2, zeros_crossing[0]).value, einf.value))
-        return val_pointofXplane(L.value, plane_val, origin.value), zeros_crossing[0]
+    # if len(zeros_crossing) == 1:
+    #     plane_val = val_normalised(omt_func(interp_objects_root(C1, C2, zeros_crossing[0]).value, einf.value))
+    #     return val_pointofXplane(L.value, plane_val, origin.value), zeros_crossing[0]
 
-    # if (zeros_crossing[0] < 0 or zeros_crossing[0] > 1) and  (zeros_crossing[1] < 0 or zeros_crossing[1] > 1):
-    #     print("Returned out of bounds alpha values of: (%f,%f)" %(zeros_crossing[0], zeros_crossing[1]))
-    #     return np.array([-1.]), None
+    if (zeros_crossing[0] < 0 or zeros_crossing[0] > 1) and  (zeros_crossing[1] < 0 or zeros_crossing[1] > 1):
+        print("Returned out of bounds alpha values of: (%f,%f)" %(zeros_crossing[0], zeros_crossing[1]))
+        return np.array([-1.]), None
 
     print("Alpha values are: ")
     print(zeros_crossing)
-    # pointofXsurface.alpha_left = zeros_crossing[0]
-    # pointofXsurface.alpha_right = zeros_crossing[1]
+    pointofXsurface.alpha_left = zeros_crossing[0]
+    pointofXsurface.alpha_right = zeros_crossing[1]
 
     # Check if it is in plane
     if np.abs(zeros_crossing[0] - zeros_crossing[1]) < 0.00001:
@@ -512,10 +513,10 @@ def render():
 if __name__ == "__main__":
     # Light position and color.
     lights = []
-    L = -20.*e1 + 5.*e3 -30.*e2
+    L = -20.*e1 + 5.*e3 -10.*e2
     colour_light = np.ones(3)
     lights.append(Light(L, colour_light))
-    L = 20.*e1 + 5.*e3 -30.*e2
+    L = 20.*e1 + 5.*e3 -10.*e2
     lights.append(Light(L, colour_light))
 
 
