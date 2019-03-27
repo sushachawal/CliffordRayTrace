@@ -565,13 +565,11 @@ if __name__ == "__main__":
     #     Sphere(7*e3 + 25*e2 + 5*e1, 7., np.array([0.2, 0.2, 0.2]), k * 1., 100., k * 0.2, k * 1.0, k * 1.)
     # )
 
-    # rotorR1 = generate_rotation_rotor(np.pi/6,e1, e3)
-    # rotorR2 = generate_rotation_rotor(-np.pi/10, e1, e3)
-    rotorT2 = generate_translation_rotor(6*e1 + 3*e3)
-    rotorT1 = generate_translation_rotor(-5*e1)
+    C1 = normalised(up(-4*e3) ^ up(4*e3) ^ up(4*e2))
 
-    C1 = (0.57735 ^ e123) - (0.33333 ^ e124) - (0.5 ^ e125) - (1.73205 ^ e234) - (2.02073 ^ e235) - (0.33333 ^ e245)
-    C2 = -(1.33923 ^ e123) - (2.96769 ^ e124) - (3.06769 ^ e125) - (6.21673 ^ e234) - (6.38993 ^ e235) + (0.08038 ^ e245)
+    C2 = normalised(up(5*e1-4*e3) ^ up(5*e1+4*e3) ^ up(5*e1+4*e2))
+
+
 
     scene.append(
         Interp_Surface(C2, C1, np.array([0., 0., 1.]), k * 1., 100., k * .5, k * 1., k * 0.)
@@ -579,8 +577,8 @@ if __name__ == "__main__":
 
 
     # Camera definitions
-    cam = - 13.*e2 + 1.*e1 + 2*e3
-    lookat = e1 +2*e3
+    cam = - 10.*e2 + 1.*e1
+    lookat = e1
     upcam = up(cam)
     f = 1.
     xmax = 1.0
