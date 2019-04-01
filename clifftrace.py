@@ -3,6 +3,7 @@ from clifford.tools.g3c.GAOnline import *
 import numpy as np
 from PIL import Image
 import time
+import scipy.interpolate
 from scipy.optimize import fsolve
 
 red = 'rgb(255, 0 , 0)'
@@ -251,35 +252,40 @@ def pointofXsurface(L, C1, C2, origin):
     # Check each
 
     # Check both
-    # zeros_crossing = []
-    # const = 1000
-    # for a in range(1, 999):
-    #     alpha = a/const
-    #     Calph = val_interp_objects_root(C1.value, C2.value, alpha)
-    #     m = meet_val(Calph, L.value)
-    #     val = abs(gmt_func(m,m)[0] - 0)
-    #     if val < 0.0007:
-    #         if len(zeros_crossing) < 2:
-    #             zeros_crossing.append((val, alpha))
-    #             zeros_crossing.sort(reverse = True)
-    #         elif val < zeros_crossing[0][0]:
-    #             zeros_crossing[0] = (val, alpha)
-    #             zeros_crossing.sort(reverse = True)
-    #
-    # for i in range(len(zeros_crossing)):
-    #     zeros_crossing[i] = zeros_crossing[i][1]
+    alpha_probe = np.linspace(0, 1, 100)
+    probe_list = [interp_objects_root(C1, C2, alpha) for alpha in alpha_probe]
+    probe_meet = np.array([((meet(L, C) ** 2)[0]) for C in probe_list])
+    alpha_spline = scipy.interpolate.Akima1DInterpolator(alpha_probe, probe_meet)
+    alpha_vals = alpha_spline.roots()
+    alpha_in_vals = [a for a in alpha_vals if a < 1 and a > 0]
+    success = 0
+    zeros_crossing = [0, 1]
+    if len(alpha_in_vals) == 1:
+        zeros_crossing = [alpha_in_vals[0], alpha_in_vals[0]]
+        success = 1
+    elif len(alpha_in_vals) == 2:
+        zeros_crossing = [alpha_in_vals[0], alpha_in_vals[1]]
+        success = 1
+    elif len(alpha_in_vals) > 2:
+        success = 0
+    elif len(alpha_in_vals) < 1:
+        success = 0
+
+    if success == 0:
+        print("No alpha found!")
+        return np.array([-1.]), None
+
     def rootfunc(alpha):
         return [(meet(interp_objects_root(C1,C2,alpha[0]), L) ** 2)[0], (meet(interp_objects_root(C1,C2,alpha[1]), L) ** 2)[0]]
+
 
     # TODO: Need to make this non-linear solver more robust
 
     # alpha_left and alpha_right are static function variables.
     # Initialised at the end of this function to 0 and 1 respectively
-    sol = fsolve(rootfunc, np.array([pointofXsurface.alpha_left, pointofXsurface.alpha_right]),full_output=True)
+    sol = fsolve(rootfunc, np.array([zeros_crossing[0], zeros_crossing[1]]),full_output=True)
     zeros_crossing = sol[0]
     success = sol[2]
-
-    # success = len(zeros_crossing) != 0
 
     # Check if it misses entirely
     if success != 1:
@@ -287,18 +293,24 @@ def pointofXsurface(L, C1, C2, origin):
         print(sol)
         return np.array([-1.]), None
 
-    # if len(zeros_crossing) == 1:
-    #     plane_val = val_normalised(omt_func(interp_objects_root(C1, C2, zeros_crossing[0]).value, einf.value))
-    #     return val_pointofXplane(L.value, plane_val, origin.value), zeros_crossing[0]
 
-    if (zeros_crossing[0] < 0 or zeros_crossing[0] > 1) and  (zeros_crossing[1] < 0 or zeros_crossing[1] > 1):
+    zc0_missed = zeros_crossing[0] < 0 or zeros_crossing[0] > 1
+    zc1_missed = zeros_crossing[1] < 0 or zeros_crossing[1] > 1
+
+    if zc0_missed and  zc1_missed:
         print("Returned out of bounds alpha values of: (%f,%f)" %(zeros_crossing[0], zeros_crossing[1]))
         return np.array([-1.]), None
 
+    if zc1_missed:
+        plane_val = val_normalised(omt_func(interp_objects_root(C1, C2, zeros_crossing[0]).value, einf.value))
+        return val_pointofXplane(L.value, plane_val, origin.value)
+
+    if zc0_missed:
+        plane_val = val_normalised(omt_func(interp_objects_root(C1, C2, zeros_crossing[1]).value, einf.value))
+        return val_pointofXplane(L.value, plane_val, origin.value)
+
     print("Alpha values are: ")
     print(zeros_crossing)
-    pointofXsurface.alpha_left = zeros_crossing[0]
-    pointofXsurface.alpha_right = zeros_crossing[1]
 
     # Check if it is in plane
     if np.abs(zeros_crossing[0] - zeros_crossing[1]) < 0.00001:
@@ -328,8 +340,6 @@ def pointofXsurface(L, C1, C2, origin):
     else:
         return p2_val, zeros_crossing[1]
 
-pointofXsurface.alpha_left = 0
-pointofXsurface.alpha_right = 1
 
 def project_points_to_circle(point_list, circle):
     """
@@ -499,7 +509,6 @@ def render():
             print("Pixel coords are; %d, %d" % (j, i))
             value = trace_ray(line, scene, upcam, 0)
             new_value = np.clip(value, 0, 1)
-            print(value)
             if np.any(value > 1.) or np.any(value < 0.):
                 clipped += 1
             img[j, i, :] = new_value * 255.
@@ -513,10 +522,10 @@ def render():
 if __name__ == "__main__":
     # Light position and color.
     lights = []
-    L = -20.*e1 + 5.*e3 -10.*e2
+    L = -30.*e1 + 5.*e3 -30.*e2
     colour_light = np.ones(3)
     lights.append(Light(L, colour_light))
-    L = 20.*e1 + 5.*e3 -10.*e2
+    L = 30.*e1 + 5.*e3 -30.*e2
     lights.append(Light(L, colour_light))
 
 
@@ -524,12 +533,12 @@ if __name__ == "__main__":
     a1 = 0.02
     a2 = 0.0
     a3 = 0.002
-    w = 400
-    h = 300
+    w = 800
+    h = 600
     options = {'ambient': True, 'specular': True, 'diffuse': True}
     ambient = 0.3
     k = 1.  # Magic constant to scale everything by the same amount!
-    max_depth = 2
+    max_depth = 0
     background = np.zeros(3) # [66./520., 185./510., 244./510.]
 
     # Add objects to the scene:
@@ -565,21 +574,36 @@ if __name__ == "__main__":
     # scene.append(
     #     Sphere(7*e3 + 25*e2 + 5*e1, 7., np.array([0.2, 0.2, 0.2]), k * 1., 100., k * 0.2, k * 1.0, k * 1.)
     # )
+    rotorR1 = generate_rotation_rotor(np.pi/6,e1, e3)
+    rotorR2 = generate_rotation_rotor(-np.pi/8, e1, e3)
+    rotorR3 = generate_rotation_rotor(-np.pi/4, e1, e2)
+    rotorT2 = generate_translation_rotor(10*e1 + 3*e3 - 3*e2)
+    rotorT1 = generate_translation_rotor(-7*e1)
 
-    C1 = normalised(up(-4*e3) ^ up(4*e3) ^ up(4*e2))
 
-    C2 = normalised(up(5*e1-4*e3) ^ up(5*e1+4*e3) ^ up(5*e1+4*e2))
-
-
+    C1 = normalised(up(-4 * e3) ^ up(4 * e3) ^ up(4 * e2))
+    C2 = normalised(up(-4 * e3) ^ up(4 * e3) ^ up(4 * e2))
+    C1 = apply_rotor(C1, rotorR1)
+    C2 = apply_rotor(C2, rotorR2)
+    C2 = apply_rotor(C2, rotorR3)
+    C1 = apply_rotor(C1, rotorT1)
+    C2 = apply_rotor(C2, rotorT2)
 
     scene.append(
         Interp_Surface(C2, C1, np.array([0., 0., 1.]), k * 1., 100., k * .5, k * 1., k * 0.)
     )
-
+    scene.append(
+        Circle(e1, -e1, e3, np.array([0., 0., 1.]), k * 1., 100., k * .5, k * 1., k * 0.)
+    )
+    scene.append(
+        Circle(e1, -e1, e3, np.array([0., 0., 1.]), k * 1., 100., k * .5, k * 1., k * 0.)
+    )
+    scene[1].object = C1
+    scene[2].object = C2
 
     # Camera definitions
-    cam = - 10.*e2 + 1.*e1
-    lookat = e1
+    cam = -25.*e2 + 1.*e1 + 5.5*e3
+    lookat = e1 + 5.5*e3
     upcam = up(cam)
     f = 1.
     xmax = 1.0
@@ -603,12 +627,58 @@ if __name__ == "__main__":
     im1 = Image.fromarray(render().astype('uint8'), 'RGB')
     im1.save('figtestLatest.png')
 
+    scene = [scene[0]]
+
+    im1 = Image.fromarray(render().astype('uint8'), 'RGB')
+    im1.save('figtestLatestNoCaps.png')
+
+
+
+    """
+    Now render a sphere!
+    """
+
+    lights = []
+    L = -20. * e1 + 5. * e3 - 10. * e2
+    colour_light = np.ones(3)
+    lights.append(Light(L, colour_light))
+    L = 20. * e1 + 5. * e3 - 10. * e2
+    lights.append(Light(L, colour_light))
+
+    cam = - 10. * e2 + 1. * e1
+    lookat = e1
+    upcam = up(cam)
+
+    optic_axis = new_line(cam, lookat)
+    original = new_line(eo, e2)
+    MVR = generate_translation_rotor(cam-lookat)*rotor_between_lines(original, optic_axis)
+    dTx = MVR*generate_translation_rotor((2*xmax/(w-1))*e1)*~MVR
+    dTy = MVR*generate_translation_rotor(-(2*ymax/(h-1))*e3)*~MVR
+
+    Ptl = f*1.0*e2 - e1*xmax + e3*ymax
+
+    # Used to generate sphere
+    C1 = normalised(up(-4*e3) ^ up(4*e3) ^ up(4*e2))
+
+    C2 = normalised(up(5*e1-4*e3) ^ up(5*e1+4*e3) ^ up(5*e1+4*e2))
+
+    scene = []
+    scene.append(
+        Interp_Surface(C2, C1, np.array([0., 0., 1.]), k * 1., 100., k * .5, k * 1., k * 0.)
+    )
+
+    im1 = Image.fromarray(render().astype('uint8'), 'RGB')
+    im1.save('figtestLatestSphere.png')
+    drawScene()
+
     equator_circle = (C1 + C2).normal()
 
     interp_sphere = (equator_circle * (equator_circle ^ einf).normal() * I5).normal()
 
     scene = [Sphere(0, 0, np.array([0., 0., 1.]), k * 1., 100., k * 0.5, k * 1., k * 0.)]
     scene[0].object = unsign_sphere(interp_sphere)
+
+
     print("\n\nNow drawing Sphere:\n\n")
     drawScene()
 
